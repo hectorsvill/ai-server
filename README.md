@@ -3,9 +3,9 @@
 ### Components:
 - AMD GPU
 - Ubuntu 
-- [AMD Driverse intalled](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html)
+- [AMD Driverse installed](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html)
 - [Docker](http://docker.com/)
-- [Ollama](https://ollama.com/): A tool for running llm's localy
+- [Ollama](https://ollama.com/): A tool for running llm's localy.
 - [Open WebUI](https://github.com/open-webui/open-webui): A Web interface for interacting with LLMs served by Ollama.
 
 ### ollama Setup
