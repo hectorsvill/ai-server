@@ -1,4 +1,4 @@
-# ai-server config 
+# ai-server docker config 
 
 ### Components:
 - AMD GPU
