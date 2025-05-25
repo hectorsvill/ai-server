@@ -1,0 +1,193 @@
+services:
+  # Nginx Proxy Manager (NPM) service
+  app:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx-proxy-manager
+    ports:
+      - '80:80'   # HTTP
+      - '81:81'   # NPM admin interface
+      - '123:443' # HTTPS
+    environment:
+      DB_MYSQL_HOST: "db" # Refers to the 'db' (MariaDB) service
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: "npm"
+      DB_MYSQL_PASSWORD: "npm"
+      DB_MYSQL_NAME: "npm"
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    networks:
+      - ai-network
+    depends_on:
+      - db # Depends on the MariaDB database
+    restart: always
+
+  # MariaDB database service for Nginx Proxy Manager (existing 'db')
+  db:
+    image: 'jc21/mariadb-aria:latest'
+    container_name: npm-mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: 'npm'
+      MYSQL_DATABASE: 'npm'
+      MYSQL_USER: 'npm'
+      MYSQL_PASSWORD: 'npm'
+    volumes:
+      - ./mysql:/var/lib/mysql
+    networks:
+      - ai-network
+    restart: always
+
+  # Ollama service for running language models
+  ollama:
+    image: 'ollama/ollama:rocm'
+    container_name: ollama
+    ports:
+      - '11434:11434'
+    volumes:
+      - ollama_data:/root/.ollama
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - '992' # Verify this group ID for your system's 'render' or 'video' group.
+    networks:
+      - ai-network
+    restart: always
+
+  # Open WebUI service as a frontend for Ollama
+  open-webui:
+    image: 'ghcr.io/open-webui/open-webui:main'
+    container_name: open-webui
+    ports:
+      - '3234:8080' # Host port 3000 for Open WebUI
+    volumes:
+      - open_webui_data:/app/backend/data
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ai-network
+    depends_on:
+      - ollama
+    restart: always
+
+  # Glance service for monitoring/dashboard
+  glance:
+    container_name: glance
+    image: glanceapp/glance
+    restart: unless-stopped
+    volumes:
+      - ./config:/app/config
+      - ./assets:/app/assets
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - 11457:8080
+    env_file: .env
+    networks:
+      - ai-network
+
+  # Jellyfin media server service
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    network_mode: 'host' # Jellyfin uses host network directly, no port mapping here
+    user: 1000:1000 # IMPORTANT: Replace uid:gid with actual user and group IDs
+    volumes:
+      - /path/to/config:/config # IMPORTANT: Replace with your actual host paths
+      - /path/to/cache:/cache
+      - type: bind
+        source: /path/to/media
+        target: /media
+      - type: bind
+        source: /path/to/media2
+        target: /media2
+        read_only: true
+      - type: bind
+        source: /path/to/fonts
+        target: /usr/local/share/fonts/custom
+        read_only: true
+    restart: 'unless-stopped'
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://tv.serverv.home # Update this to your actual URL
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+  # Pi-hole DNS server and ad blocker
+  # pihole:
+  #   container_name: pihole
+  #   image: pihole/pihole:stable
+  #   ports:
+  #     - "53:53/tcp"
+  #     - "53:53/udp"
+  #     # - "67:67/udp" # Uncomment ONLY if using Pi-hole as DHCP server
+  #   environment:
+  #     TZ: 'America/New_York' # !!! IMPORTANT: Replace with your actual timezone !!!
+  #     WEBPASSWORD: 'same_one-0825-49EA-946B-36F-059D-CB6E8' # !!! IMPORTANT: Set a strong password !!!
+  #   volumes:
+  #     - './etc-pihole:/etc/pihole'
+  #     - './etc-dnsmasq.d:/etc/dnsmasq.d'
+  #   cap_add:
+  #     - NET_ADMIN
+  #   restart: unless-stopped
+  #   networks:
+  #     ai-network:
+  #       ipv4_address: 172.18.0.10 # Static IP for Pi-hole, adjust if conflicts
+
+  # Docmost application service
+  docmost:
+    image: docmost/docmost:latest
+    container_name: docmost
+    depends_on:
+      - docmost_db # Depends on the new PostgreSQL database
+      - redis
+    environment:
+      APP_URL: "http://192.168.1.159:3001" # Updated to new host port
+      APP_SECRET: "ac47bb927b965eeb8af2ac7575cb60e58345469e50dbf05d0de714b5f34da658" # Replace with: openssl rand -hex 32 !!!
+      DATABASE_URL: "postgresql://docmost:STRONG_DB_PASSWORD@docmost_db:5432/docmost?schema=public" # Updated DB service name
+      REDIS_URL: "redis://redis:6379"
+    ports:
+      - "4389:3000" # Host port 3001 maps to container port 3000
+    restart: unless-stopped
+    volumes:
+      - docmost_data:/app/data/storage # Using a named volume for Docmost data
+    networks:
+      - ai-network # Connect to the shared network
+
+  # PostgreSQL database service for Docmost (renamed from 'db' to 'docmost_db')
+  docmost_db:
+    image: postgres:16-alpine
+    container_name: docmost-postgresql
+    environment:
+      POSTGRES_DB: docmost
+      POSTGRES_USER: docmost
+      POSTGRES_PASSWORD: STRONG_DB_PASSWORD # !!! IMPORTANT: Set a strong password !!!
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Using a named volume for PostgreSQL data
+    networks:
+      - ai-network # Connect to the shared network
+
+  # Redis service for Docmost
+  redis:
+    image: redis:7.2-alpine
+    container_name: docmost-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data # Using a named volume for Redis data
+    networks:
+      - ai-network # Connect to the shared network
+
+# Define the custom bridge network
+networks:
+  ai-network:
+    driver: bridge
+
+# Define named volumes for persistent data
+volumes:
+  ollama_data:
+  open_webui_data:
+  docmost_data: # New named volume for Docmost application data
+  postgres_data: # New named volume for Docmost's PostgreSQL data
+  redis_data: # New named volume for Docmost's Redis data
