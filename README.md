@@ -10,7 +10,7 @@
 
 ### ollama Setup
 Run Docker command to deploy the Ollama server with ROCm support for AMD GPUs: 
-```bash
+```yaml
 ollama:
     image: 'ollama/ollama:rocm'
     container_name: ollama
@@ -30,7 +30,7 @@ ollama:
 ```
 ### Open WebUI Setup
 Deploy Open WebUI interface using Docker, connecting it to Ollama server:
-```bash
+```yaml
 open-webui:
     image: 'ghcr.io/open-webui/open-webui:main'
     container_name: open-webui
@@ -50,12 +50,12 @@ open-webui:
 ```
 ### Pulling models 
 Use the following command to pull any models to the Ollama server. Example, to pull the `deepseek-r1` model:
-```bash 
+```yaml 
 docker exec -it ollama ollama pull deepseek-r1
 ```
 ### docmost
 Update Docmost service configuration with new environment variables, port mappings, and dependency updates. Uses volumes for data storage and a consistent network configuration.
-```
+```yaml
 docmost:
     image: docmost/docmost:latest
     container_name: docmost
