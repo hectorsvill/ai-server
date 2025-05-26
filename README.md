@@ -53,4 +53,26 @@ Use the following command to pull any models to the Ollama server. Example, to p
 ```bash 
 docker exec -it ollama ollama pull deepseek-r1
 ```
+### docmost
+Update Docmost service configuration with new environment variables, port mappings, and dependency updates. Uses volumes for data storage and a consistent network configuration.
+```
+docmost:
+    image: docmost/docmost:latest
+    container_name: docmost
+    depends_on:
+      - docmost_db # Depends on the new PostgreSQL database
+      - redis
+    environment:
+      APP_URL: "http://192.168.1.159:3001" # Updated to new host port
+      APP_SECRET: "ac47bb927b965eeb8af2ac7575cb60e58345469e50dbf05d0de714b5f34da658" # Replace with: openssl rand -hex 32 !!!
+      DATABASE_URL: "postgresql://docmost:STRONG_DB_PASSWORD@docmost_db:5432/docmost?schema=public" # Updated DB service name
+      REDIS_URL: "redis://redis:6379"
+    ports:
+      - "4389:3000" # Host port 3001 maps to container port 3000
+    restart: unless-stopped
+    volumes:
+      - docmost_data:/app/data/storage # Using a named volume for Docmost data
+    networks:
+      - ai-network # Connect to the shared network
+```
 
