@@ -11,30 +11,42 @@
 ### ollama Setup
 Run Docker command to deploy the Ollama server with ROCm support for AMD GPUs: 
 ```bash
-docker run -d \
-  --name ollama \
-  --network ai-network \
-  -v ollama:/root/.ollama \
-  -p 11434:11434 \
-  --device=/dev/kfd \
-  --device=/dev/dri \
-  --group-add video \
-  --group-add 992 \
-  --restart always \
-  ollama/ollama:rocm
+ollama:
+    image: 'ollama/ollama:rocm'
+    container_name: ollama
+    ports:
+      - '11434:11434'
+    volumes:
+      - ollama_data:/root/.ollama
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - '992' # Verify this group ID for your system's 'render' or 'video' group.
+    networks:
+      - ai-network
+    restart: always
 ```
 ### Open WebUI Setup
 Deploy Open WebUI interface using Docker, connecting it to Ollama server:
 ```bash
-docker run -d \
-  --name open-webui \
-  --network ai-network \
-  -p 3000:8080 \
-  -v open-webui:/app/backend/data \
-  -e OLLAMA_BASE_URL=http://ollama:11434 \
-  --add-host=host.docker.internal:host-gateway \
-  --restart always \
-  ghcr.io/open-webui/open-webui:main
+open-webui:
+    image: 'ghcr.io/open-webui/open-webui:main'
+    container_name: open-webui
+    ports:
+      - '3234:8080' # Host port 3000 for Open WebUI
+    volumes:
+      - open_webui_data:/app/backend/data
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ai-network
+    depends_on:
+      - ollama
+    restart: always
 ```
 ### Pulling models 
 Use the following command to pull any models to the Ollama server. Example, to pull the `deepseek-r1` model:
