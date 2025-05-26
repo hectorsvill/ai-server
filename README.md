@@ -74,5 +74,71 @@ docmost:
       - docmost_data:/app/data/storage # Using a named volume for Docmost data
     networks:
       - ai-network # Connect to the shared network
+
+  # PostgreSQL database service for Docmost (renamed from 'db' to 'docmost_db')
+  docmost_db:
+    image: postgres:16-alpine
+    container_name: docmost-postgresql
+    environment:
+      POSTGRES_DB: docmost
+      POSTGRES_USER: docmost
+      POSTGRES_PASSWORD: STRONG_DB_PASSWORD # !!! IMPORTANT: Set a strong password !!!
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Using a named volume for PostgreSQL data
+    networks:
+      - ai-network # Connect to the shared network
+
+  # Redis service for Docmost
+  redis:
+    image: redis:7.2-alpine
+    container_name: docmost-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data # Using a named volume for Redis data
+    networks:
+      - ai-network # Connect to the shared network
 ```
+#### 
+# Nginx Proxy Manager service
+The Nginx Proxy Manager (NPM) service acts as a proxy for handling HTTP traffic, while the MariaDB database service provides secure MySQL storage with credentials configured internally. 
+```yaml
+  app:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx-proxy-manager
+    ports:
+      - '80:80'   # HTTP
+      - '81:81'   # NPM admin interface
+      - '123:443' # HTTPS
+    environment:
+      DB_MYSQL_HOST: "db" # Refers to the 'db' (MariaDB) service
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: "npm"
+      DB_MYSQL_PASSWORD: "npm"
+      DB_MYSQL_NAME: "npm"
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    networks:
+      - ai-network
+    depends_on:
+      - db # Depends on the MariaDB database
+    restart: always
+
+  # MariaDB database service for Nginx Proxy Manager (existing 'db')
+  db:
+    image: 'jc21/mariadb-aria:latest'
+    container_name: npm-mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: 'npm'
+      MYSQL_DATABASE: 'npm'
+      MYSQL_USER: 'npm'
+      MYSQL_PASSWORD: 'npm'
+    volumes:
+      - ./mysql:/var/lib/mysql
+    networks:
+      - ai-network
+    restart: always
+
+    ```
 
