@@ -1,0 +1,78 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+
+pages:
+  - name: AI Server Dashboard
+    columns:
+      - size: small
+        widgets:
+          - type: monitor
+            title: System Resources (CPU • RAM • Disk • Net)
+            cache: 5s
+            # The monitor widget shows a concise overview of core system stats
+            # No extra config needed in the current Glance image
+            
+          - type: clock
+            title: Server Time (24h)
+            hour-format: 24h
+
+      - size: small
+        widgets:
+          - type: bookmarks
+            title: 🤖 AI Services
+            style: list
+            groups:
+              - title: Core AI Stack
+                color: 280 83 62
+                links:
+                  - title: "💬 Open WebUI (AI Chat)"
+                    url: "javascript:location.protocol + '//' + location.hostname + ':3234'"
+                  - title: "🧠 Ollama API"
+                    url: "javascript:location.protocol + '//' + location.hostname + ':11434'"
+                  - title: "📚 Docmost (Documentation)"
+                    url: "javascript:location.protocol + '//' + location.hostname + ':4389'"
+          - type: bookmarks
+            title: 🔧 System Monitoring
+            style: list
+            groups:
+              - title: Server Management
+                color: 95 66 51
+                links:
+                  - title: "📊 This Dashboard"
+                    url: "javascript:location.protocol + '//' + location.hostname + ':11457'"
+                  - title: "🐳 Docker Stats"
+                    url: "javascript:window.open(location.protocol + '//' + location.hostname + ':11457', '_blank')"
+
+      - size: full
+        widgets:
+          - type: rss
+            title: 🗞️ AI & Technology News
+            limit: 10
+            collapse-after: 5
+            feeds:
+              - url: https://feeds.feedburner.com/venturebeat/SZYF
+                title: VentureBeat AI
+              - url: https://www.artificialintelligence-news.com/feed/
+                title: AI News
+              - url: https://feeds.feedburner.com/oreilly/radar
+                title: O'Reilly Radar
+                
+          - type: bookmarks
+            title: 🔗 Quick Access
+            style: grid
+            groups:
+              - title: Container Management
+                links:
+                  - title: "⚡ Restart All"
+                    url: "javascript:alert('Use: docker compose restart')"
+                  - title: "📋 View Logs" 
+                    url: "javascript:alert('Use: docker compose logs -f')"
+                  - title: "💾 Backup Data"
+                    url: "javascript:alert('Use backup scripts in guide')"
+theme:
+  background-color: 210 20 98
+  contrast-multiplier: 1.2
+  primary-color: 280 83 62
+  positive-color: 95 66 51
+  negative-color: 0 84 60
