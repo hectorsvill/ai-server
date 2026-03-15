@@ -1,15 +1,15 @@
 # AI Server
 
-Self-hosted AI stack running on `192.168.1.83`.
+Self-hosted AI stack running on your local server.
 
 ## Services
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| Open WebUI | http://192.168.1.83:3234 | Chat UI for LLMs |
-| Docmost | http://192.168.1.83:4389 | Wiki / knowledge base |
-| Glance | http://192.168.1.83:11457 | Dashboard |
-| Ollama | http://192.168.1.83:11434 | LLM runtime (native, not Docker) |
+| Open WebUI | http://YOUR_SERVER_IP:3234 | Chat UI for LLMs |
+| Docmost | http://YOUR_SERVER_IP:4389 | Wiki / knowledge base |
+| Glance | http://YOUR_SERVER_IP:11457 | Dashboard |
+| Ollama | http://YOUR_SERVER_IP:11434 | LLM runtime (native, not Docker) |
 
 ## Quick start
 

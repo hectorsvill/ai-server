@@ -9,7 +9,7 @@ A plain-English explanation of every service, how they connect, and why things a
 ```
 Your browser
      |
-     |─── http://192.168.1.83:3234 ──► open-webui (Docker container)
+     |─── http://YOUR_SERVER_IP:3234 ──► open-webui (Docker container)
      |                                        |
      |                                        │ http://host.docker.internal:11434
      |                                        ▼
@@ -17,14 +17,14 @@ Your browser
      |                                        |
      |                               AMD GPU via ROCm
      |
-     |─── http://192.168.1.83:4389 ──► docmost (Docker container)
+     |─── http://YOUR_SERVER_IP:4389 ──► docmost (Docker container)
      |                                        |
      |                              ┌─────────┴─────────┐
      |                              ▼                   ▼
      |                         postgresql             redis
      |                       (Docker container)  (Docker container)
      |
-     └─── http://192.168.1.83:11457 ► glance (Docker container)
+     └─── http://YOUR_SERVER_IP:11457 ► glance (Docker container)
                                               |
                                      /var/run/docker.sock (read-only)
 ```

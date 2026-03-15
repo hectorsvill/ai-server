@@ -20,8 +20,8 @@ cat ~/.credentials/ai-server.txt
 
 | Service | Email | Notes |
 |---------|-------|-------|
-| Open WebUI | hectorsvill@outlook.com | admin role |
-| Docmost | hectorsvill@outlook.com | owner role |
+| Open WebUI | YOUR_EMAIL | admin role |
+| Docmost | YOUR_EMAIL | owner role |
 
 ---
 
@@ -43,7 +43,7 @@ import bcrypt, sqlite3
 pw = b'YOUR_NEW_PASSWORD'
 hashed = bcrypt.hashpw(pw, bcrypt.gensalt()).decode()
 conn = sqlite3.connect('/app/backend/data/webui.db')
-conn.execute(\"UPDATE auth SET password=? WHERE email='hectorsvill@outlook.com'\", (hashed,))
+conn.execute(\"UPDATE auth SET password=? WHERE email='YOUR_EMAIL'\", (hashed,))
 conn.commit()
 print('rows updated:', conn.total_changes)
 "
@@ -73,7 +73,7 @@ python3 -c "import bcrypt; print(bcrypt.hashpw(b'YOUR_NEW_PASSWORD', bcrypt.gens
 
 ```bash
 docker exec docmost-postgresql psql -U docmost -d docmost -c \
-  "UPDATE users SET password='\$2b\$12\$...' WHERE email='hectorsvill@outlook.com';"
+  "UPDATE users SET password='\$2b\$12\$...' WHERE email='YOUR_EMAIL';"
 ```
 
 **3. Update `~/.credentials/ai-server.txt` with the new password.**
