@@ -4,6 +4,28 @@ services:
   # complexity, and container networking overhead. Open WebUI connects to the host
   # ollama service via host.docker.internal:11434.
 
+  # Caddy reverse proxy — handles HTTPS for all services via Cloudflare DNS challenge.
+  # TLS certs are obtained automatically from Let's Encrypt on first start.
+  caddy:
+    build:
+      context: .
+      dockerfile: caddy.Dockerfile
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      CF_API_TOKEN: ${CF_API_TOKEN}
+      DOMAIN: ${DOMAIN}
+    networks:
+      - ai-network
+
   # Open WebUI service as a frontend for Ollama
   open-webui:
     image: 'ghcr.io/open-webui/open-webui:main'
@@ -91,3 +113,5 @@ volumes:
   docmost_data:
   postgres_data:
   redis_data:
+  caddy_data:
+  caddy_config:

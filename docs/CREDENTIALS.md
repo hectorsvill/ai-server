@@ -95,5 +95,6 @@ Docmost supports a "forgot password" email flow, but this stack has no mail serv
 ## Security reminders
 
 - Never commit `~/.credentials/ai-server.txt` or `.env` to git
+- Never commit `CF_API_TOKEN` (Cloudflare API token) — it lives only in `.env`
 - Rotate passwords if the machine is ever accessed by someone else or exposed to the internet
 - The bcrypt hash stored in the DB is safe to have in a database — it cannot be reversed to the original password

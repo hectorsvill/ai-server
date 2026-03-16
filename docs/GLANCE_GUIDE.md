@@ -45,10 +45,22 @@ Example (from `config/glance.yml`):
 
 ```yaml
 - title: "💬 Open WebUI (AI Chat)"
-  url: "javascript:location.protocol + '//' + location.hostname + ':3234'"
+  url: "javascript:location.protocol + ‘//’ + location.hostname + ‘:3234’"
 ```
 
 This makes the link work regardless of whether you access the dashboard via IP or a domain name.
+
+If you have Caddy + HTTPS set up, you can hardcode the HTTPS subdomains instead for cleaner URLs:
+
+```yaml
+- title: "💬 Open WebUI (AI Chat)"
+  url: "https://webui.yourdomain.com"
+
+- title: "📖 Docmost Wiki"
+  url: "https://wiki.yourdomain.com"
+```
+
+See [`https-setup.md`](https-setup.md) for Caddy setup.
 
 ## System resources monitoring
 

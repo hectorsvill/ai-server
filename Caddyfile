@@ -1,0 +1,22 @@
+(cloudflare_tls) {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+		resolvers 1.1.1.1 8.8.8.8
+		propagation_timeout 5m
+	}
+}
+
+webui.{$DOMAIN} {
+	import cloudflare_tls
+	reverse_proxy open-webui:8080
+}
+
+wiki.{$DOMAIN} {
+	import cloudflare_tls
+	reverse_proxy docmost:3000
+}
+
+dash.{$DOMAIN} {
+	import cloudflare_tls
+	reverse_proxy glance:8080
+}

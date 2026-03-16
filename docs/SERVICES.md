@@ -8,32 +8,120 @@ A plain-English explanation of every service, how they connect, and why things a
 
 ```
 Your browser
-     |
-     |─── http://YOUR_SERVER_IP:3234 ──► open-webui (Docker container)
-     |                                        |
-     |                                        │ http://host.docker.internal:11434
-     |                                        ▼
-     |                               ollama (native systemd service)
-     |                                        |
-     |                               AMD GPU via ROCm
-     |
-     |─── http://YOUR_SERVER_IP:4389 ──► docmost (Docker container)
-     |                                        |
-     |                              ┌─────────┴─────────┐
-     |                              ▼                   ▼
-     |                         postgresql             redis
-     |                       (Docker container)  (Docker container)
-     |
-     └─── http://YOUR_SERVER_IP:11457 ► glance (Docker container)
-                                              |
-                                     /var/run/docker.sock (read-only)
+     │
+     │ https://webui.yourdomain.com  (or http://YOUR_SERVER_IP:3234 direct)
+     │ https://wiki.yourdomain.com   (or http://YOUR_SERVER_IP:4389 direct)
+     │ https://dash.yourdomain.com   (or http://YOUR_SERVER_IP:11457 direct)
+     ▼
+Caddy (ports 80 & 443) ◄── TLS cert from Let's Encrypt via Cloudflare DNS challenge
+     │
+     ├─── reverse_proxy ──► open-webui:8080 (Docker container)
+     │                             │
+     │                             │ http://host.docker.internal:11434
+     │                             ▼
+     │                    ollama (native systemd service)
+     │                             │
+     │                    AMD GPU via ROCm
+     │
+     ├─── reverse_proxy ──► docmost:3000 (Docker container)
+     │                             │
+     │                   ┌─────────┴─────────┐
+     │                   ▼                   ▼
+     │              postgresql             redis
+     │           (Docker container)  (Docker container)
+     │
+     └─── reverse_proxy ──► glance:8080 (Docker container)
+                                   │
+                          /var/run/docker.sock (read-only)
 ```
 
-All Docker containers share an internal bridge network called `ai-network`. They talk to each other using container names as hostnames (e.g. `docmost_db`, `redis`). Ollama is the exception — it lives outside Docker entirely.
+All Docker containers share an internal bridge network called `ai-network`. They talk to each other using container names as hostnames (e.g. `docmost_db`, `redis`). Ollama is the exception — it lives outside Docker entirely. Caddy sits in front of all services and handles HTTPS termination.
 
 ---
 
 ## Services
+
+### Caddy — reverse proxy and HTTPS
+
+Caddy is the HTTPS entry point for the whole stack. Every browser request for `webui.*`, `wiki.*`, or `dash.*` lands on Caddy first. Caddy decrypts it, then forwards plain HTTP to the correct container over the internal Docker network, and encrypts the response before sending it back to the browser. The other containers never deal with TLS.
+
+**How a request flows:**
+
+```
+Browser
+  │  HTTPS (port 443)
+  ▼
+Caddy container  ◄──── TLS cert (Let's Encrypt, stored in caddy_data volume)
+  │  plain HTTP (internal ai-network)
+  ├─► open-webui:8080    (for webui.yourdomain.com)
+  ├─► docmost:3000       (for wiki.yourdomain.com)
+  └─► glance:8080        (for dash.yourdomain.com)
+```
+
+Caddy knows the container hostnames (`open-webui`, `docmost`, `glance`) because all four containers are on the same Docker bridge network — `ai-network`. Docker's internal DNS resolves container names to their private IPs automatically. No hardcoded IPs are needed.
+
+**How TLS certificates are obtained:**
+
+Let's Encrypt requires proof that you own the domain before issuing a certificate. Caddy uses the **DNS-01 challenge**: it temporarily creates a `_acme-challenge` TXT record in your Cloudflare DNS zone, Let's Encrypt verifies it, and the certificate is issued. Your server never needs to be reachable from the internet — port 443 only needs to be open on your LAN.
+
+The `CF_API_TOKEN` env var gives Caddy permission to write to your Cloudflare DNS zone for this purpose only.
+
+**The Caddyfile:**
+
+```
+(cloudflare_tls) {
+    tls {
+        dns cloudflare {env.CF_API_TOKEN}
+        resolvers 1.1.1.1 8.8.8.8
+        propagation_timeout 5m
+    }
+}
+
+webui.{$DOMAIN} {
+    import cloudflare_tls
+    reverse_proxy open-webui:8080
+}
+
+wiki.{$DOMAIN} {
+    import cloudflare_tls
+    reverse_proxy docmost:3000
+}
+
+dash.{$DOMAIN} {
+    import cloudflare_tls
+    reverse_proxy glance:8080
+}
+```
+
+`(cloudflare_tls)` is a reusable snippet. Each virtual host imports it and adds one directive — `reverse_proxy <container>:<port>`. `{$DOMAIN}` is substituted from the `DOMAIN` environment variable at runtime.
+
+**Custom build:**
+
+The standard `caddy` image does not ship the Cloudflare DNS plugin. `caddy.Dockerfile` uses `xcaddy` to compile a custom binary with it included:
+
+```dockerfile
+FROM caddy:builder AS builder
+RUN xcaddy build --with github.com/caddy-dns/cloudflare
+
+FROM caddy:latest
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+```
+
+Run `docker compose build caddy` once before first start. The image is cached after that.
+
+**Ports:** `80` (HTTP → HTTPS redirect), `443` (HTTPS), `443/udp` (HTTP/3)
+
+**Data volumes:**
+- `caddy_data` — TLS certificates and ACME state. Persists across restarts so certs are not re-requested every time.
+- `caddy_config` — Caddy's runtime config cache.
+
+**Environment variables needed in `.env`:**
+- `DOMAIN` — your root domain (e.g. `yourdomain.com`)
+- `CF_API_TOKEN` — Cloudflare API token with "Edit zone DNS" permission
+
+See [`https-setup.md`](https-setup.md) for the full step-by-step first-time setup. See [`caddy.md`](caddy.md) for day-to-day operations and Caddyfile reference.
+
+---
 
 ### Ollama — native host service
 
@@ -159,6 +247,8 @@ Data is never stored inside containers. Containers are ephemeral — they can be
 | `ai-server_docmost_data` | File uploads, attachments | `/var/lib/docker/volumes/` |
 | `ai-server_postgres_data` | All Docmost documents | `/var/lib/docker/volumes/` |
 | `ai-server_redis_data` | Queue and cache | `/var/lib/docker/volumes/` |
+| `ai-server_caddy_data` | TLS certificates, ACME state | `/var/lib/docker/volumes/` |
+| `ai-server_caddy_config` | Caddy runtime config cache | `/var/lib/docker/volumes/` |
 | `~/.ollama` | Downloaded models | Host home directory |
 | `~/.credentials/ai-server.txt` | Service passwords | Host home directory |
 
@@ -175,16 +265,18 @@ Key variables:
 | Variable | Used by | Purpose |
 |----------|---------|---------|
 | `OLLAMA_BASE_URL` | open-webui | Where to find the Ollama API |
-| `APP_URL` | docmost | Public URL for link generation |
+| `APP_URL` | docmost | Public URL for link generation (use HTTPS URL if Caddy is set up) |
 | `APP_SECRET` | docmost | Session signing secret |
 | `DATABASE_URL` | docmost | PostgreSQL connection string |
 | `REDIS_URL` | docmost | Redis connection string |
-| `OPEN_WEBUI_PORT` | compose | Host port for Open WebUI |
-| `GLANCE_PORT` | compose | Host port for Glance |
-| `DOCMOST_PORT` | compose | Host port for Docmost |
+| `OPEN_WEBUI_PORT` | compose | Host port for Open WebUI (direct access) |
+| `GLANCE_PORT` | compose | Host port for Glance (direct access) |
+| `DOCMOST_PORT` | compose | Host port for Docmost (direct access) |
+| `DOMAIN` | caddy | Root domain (e.g. `yourdomain.com`) |
+| `CF_API_TOKEN` | caddy | Cloudflare API token for DNS-01 ACME challenge |
 
 Copy `.env.example` to get started — it documents every variable.
 
 ---
 
-See [`OPERATIONS.md`](OPERATIONS.md) for setup steps, updates, backups, and troubleshooting.
+See [`OPERATIONS.md`](OPERATIONS.md) for setup steps, updates, backups, and troubleshooting. See [`https-setup.md`](https-setup.md) for Caddy + HTTPS setup.

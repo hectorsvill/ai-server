@@ -2,7 +2,7 @@
 
 Setup, maintenance, backup, and troubleshooting for the AI server stack.
 
-See also: [`SERVICES.md`](SERVICES.md) for service roles and architecture, [`CREDENTIALS.md`](CREDENTIALS.md) for password management.
+See also: [`SERVICES.md`](SERVICES.md) for service roles and architecture, [`CREDENTIALS.md`](CREDENTIALS.md) for password management, [`https-setup.md`](https-setup.md) for Caddy HTTPS setup.
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -23,6 +23,7 @@ This Docker Compose configuration sets up a complete AI server stack with AMD GP
 - **Docmost**: Knowledge management and documentation platform
 - **PostgreSQL**: Database backend for Docmost
 - **Redis**: Cache service for Docmost performance
+- **Caddy**: Reverse proxy providing automatic HTTPS via Let's Encrypt and Cloudflare DNS challenge
 
 ## Prerequisites
 
@@ -61,11 +62,24 @@ Before starting, ensure you have:
 
 5. **Network ports available**:
    - 11434: Ollama API (host systemd service)
-   - 3234: Open WebUI
-   - 11457: Glance dashboard
-   - 4389: Docmost
+   - 3234: Open WebUI (direct access)
+   - 11457: Glance dashboard (direct access)
+   - 4389: Docmost (direct access)
+   - 80: Caddy HTTP (redirect to HTTPS)
+   - 443: Caddy HTTPS
 
 ## Services
+
+### Caddy (Ports 80 & 443) — Reverse proxy + HTTPS
+- **Purpose**: Terminates HTTPS for all services and reverse-proxies to them over the internal Docker network
+- **Image**: Custom build via `caddy.Dockerfile` (adds Cloudflare DNS plugin with `xcaddy`)
+- **Config**: `Caddyfile` in repo root
+- **HTTPS URLs**: `webui.yourdomain.com`, `wiki.yourdomain.com`, `dash.yourdomain.com`
+- **TLS**: Automatic certificates from Let's Encrypt via Cloudflare DNS-01 challenge
+- **Volumes**: `caddy_data` (certs), `caddy_config` (runtime cache)
+- **Build**: `docker compose build caddy` (takes ~2 min first time)
+- **Logs**: `docker compose logs -f caddy`
+- See [`https-setup.md`](https-setup.md) for full setup instructions
 
 ### Ollama (Port 11434) — Native host service
 - **Purpose**: Runs large language models locally with AMD GPU acceleration
@@ -174,9 +188,9 @@ The override file is stored at `/etc/systemd/system/ollama.service.d/override.co
 
 1. **Set up environment variables**:
    ```bash
-   # Copy the template and edit with your values
-   cp .env.template .env
-   
+   # Copy the example file and edit with your values
+   cp .env.example .env
+
    # Edit the .env file with your actual values
    nano .env
    ```
@@ -461,7 +475,39 @@ docker compose logs -f
 
 ### Common Issues
 
-1. **AMD GPU not detected in Ollama**:
+1. **Caddy DNS challenge fails / cert not issued**:
+   ```bash
+   # Check logs for DNS challenge errors
+   docker compose logs caddy | grep -i "dns\|error\|timeout"
+
+   # Verify environment variables are set
+   docker compose exec caddy env | grep -E "CF_API_TOKEN|DOMAIN"
+
+   # Common causes:
+   # - CF_API_TOKEN missing or has incorrect permissions (needs "Edit zone DNS")
+   # - DNS A records not created in Cloudflare, or set to proxied (orange cloud)
+   # - CF_API_TOKEN has extra spaces in .env
+   ```
+
+2. **Caddy container won't start / build fails**:
+   ```bash
+   # Rebuild the custom Caddy image
+   docker compose build --no-cache caddy
+
+   # Start and watch logs
+   docker compose up -d caddy
+   docker compose logs -f caddy
+   ```
+
+3. **Browser shows "Not secure" / cert warning after Caddy starts**:
+   ```bash
+   # Cert may still be issuing — wait ~60s and retry
+   docker compose logs caddy | grep "certificate obtained"
+
+   # Confirm DNS A records point to 192.168.1.83 and are NOT proxied
+   ```
+
+4. **AMD GPU not detected in Ollama**:
    ```bash
    # Verify ROCm installation
    rocm-smi
@@ -775,11 +821,11 @@ EOF
 - GPU groups (video, render) provide necessary but limited permissions
 
 ### Production Recommendations
-- Use environment files (.env) for sensitive configuration
+- Use environment files (.env) for sensitive configuration — never commit `CF_API_TOKEN` or `DOMAIN`
 - Implement regular automated backups
 - Monitor system logs for unusual GPU or container activity
 - Keep ROCm drivers and Docker images updated
-- Consider using a reverse proxy for additional security layers
+- Caddy provides HTTPS with browser-trusted Let's Encrypt certificates — see [`https-setup.md`](https-setup.md)
 
 ---
 
