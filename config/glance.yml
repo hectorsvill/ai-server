@@ -33,7 +33,7 @@ pages:
             cache: 30s
             sites:
               - title: Open WebUI
-                url: http://192.168.1.83:3234
+                url: https://webui.vailab.us
                 icon: si:openai
                 same-tab: true
 
@@ -42,12 +42,12 @@ pages:
                 same-tab: true
 
               - title: Docmost
-                url: http://192.168.1.83:4389
+                url: https://wiki.vailab.us
                 icon: si:gitbook
                 same-tab: true
 
               - title: Glance Dashboard
-                url: http://192.168.1.83:11457
+                url: https://dash.vailab.us
                 icon: si:grafana
                 same-tab: true
 
