@@ -1,0 +1,153 @@
+/* ============================================================
+   Glance — Cyberpunk Terminal Theme
+   ============================================================ */
+
+/* ── Variables ─────────────────────────────────────────────── */
+:root {
+  --cyber-cyan:   hsl(196, 100%, 55%);
+  --cyber-glow:   rgba(0, 200, 255, 0.10);
+  --cyber-border: rgba(0, 200, 255, 0.15);
+  --scan-stripe:  rgba(0, 0, 0, 0.035);
+  --radius:       10px;
+}
+
+/* ── Scanline overlay (subtle CRT feel) ─────────────────────── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    var(--scan-stripe) 3px,
+    var(--scan-stripe) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Widget containers ──────────────────────────────────────── */
+.widget {
+  border-radius: var(--radius) !important;
+  border: 1px solid var(--cyber-border) !important;
+  box-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(0, 200, 255, 0.04) !important;
+  transition:
+    border-color 0.25s ease,
+    box-shadow   0.25s ease !important;
+}
+
+.widget:hover {
+  border-color: rgba(0, 200, 255, 0.35) !important;
+  box-shadow:
+    0 4px 28px rgba(0, 0, 0, 0.5),
+    0 0 24px var(--cyber-glow) !important;
+}
+
+/* ── Widget title bar ───────────────────────────────────────── */
+.widget-title-bar,
+.title-bar {
+  border-bottom: 1px solid var(--cyber-border) !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  font-size: 0.72rem !important;
+}
+
+/* ── Clock widget — make digits pop ────────────────────────── */
+.widget-type-clock .time,
+.widget-type-clock time,
+.widget-type-clock .clock-time {
+  font-family: 'Courier New', 'Lucida Console', monospace !important;
+  font-size: 2.6rem !important;
+  letter-spacing: 0.08em !important;
+  color: var(--cyber-cyan) !important;
+  text-shadow: 0 0 18px rgba(0, 200, 255, 0.45) !important;
+}
+
+/* ── Server-stats bars ──────────────────────────────────────── */
+.widget-type-server-stats .progress-bar,
+.progress {
+  border-radius: 3px !important;
+  overflow: hidden !important;
+}
+
+.widget-type-server-stats .progress-value,
+.progress-filled {
+  background: linear-gradient(90deg, hsl(196, 100%, 40%), hsl(196, 100%, 65%)) !important;
+  box-shadow: 0 0 8px rgba(0, 200, 255, 0.4) !important;
+  border-radius: 3px !important;
+}
+
+/* ── Monitor widget — service status ───────────────────────── */
+.monitor-site-status-ok,
+.site-status-up {
+  color: hsl(142, 71%, 50%) !important;
+  text-shadow: 0 0 6px rgba(80, 220, 120, 0.5) !important;
+}
+
+.monitor-site-status-error,
+.site-status-down {
+  color: hsl(0, 80%, 58%) !important;
+  text-shadow: 0 0 6px rgba(255, 80, 80, 0.5) !important;
+}
+
+/* Service links — subtle hover lift */
+.widget-type-monitor a,
+.monitor-site a {
+  transition: color 0.2s ease, transform 0.15s ease !important;
+  display: inline-block !important;
+}
+
+.widget-type-monitor a:hover,
+.monitor-site a:hover {
+  color: var(--cyber-cyan) !important;
+  transform: translateX(3px) !important;
+}
+
+/* ── Search widget ──────────────────────────────────────────── */
+.widget-type-search input,
+input[type="search"],
+input[type="text"] {
+  border-radius: 6px !important;
+  border: 1px solid var(--cyber-border) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+  font-family: 'Courier New', monospace !important;
+}
+
+.widget-type-search input:focus,
+input[type="search"]:focus,
+input[type="text"]:focus {
+  border-color: var(--cyber-cyan) !important;
+  box-shadow: 0 0 0 3px rgba(0, 200, 255, 0.12) !important;
+  outline: none !important;
+}
+
+/* ── RSS feed links ─────────────────────────────────────────── */
+.widget-type-rss a {
+  transition: color 0.2s ease !important;
+}
+
+.widget-type-rss a:hover {
+  color: var(--cyber-cyan) !important;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 200, 255, 0.25);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 200, 255, 0.45);
+}
