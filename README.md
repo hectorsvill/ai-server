@@ -4,12 +4,13 @@ Self-hosted AI stack running on your local server.
 
 ## Services
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Open WebUI | http://YOUR_SERVER_IP:3234 | Chat UI for LLMs |
-| Docmost | http://YOUR_SERVER_IP:4389 | Wiki / knowledge base |
-| Glance | http://YOUR_SERVER_IP:11457 | Dashboard |
-| Ollama | http://YOUR_SERVER_IP:11434 | LLM runtime (native, not Docker) |
+| Service | Direct URL | HTTPS URL (via Caddy) | Purpose |
+|---------|------------|----------------------|---------|
+| Open WebUI | http://YOUR_SERVER_IP:3234 | https://webui.yourdomain.com | Chat UI for LLMs |
+| Docmost | http://YOUR_SERVER_IP:4389 | https://wiki.yourdomain.com | Wiki / knowledge base |
+| Glance | http://YOUR_SERVER_IP:11457 | https://dash.yourdomain.com | Dashboard |
+| Ollama | http://YOUR_SERVER_IP:11434 | — | LLM runtime (native, not Docker) |
+| Caddy | — | Handles ports 80 & 443 | Reverse proxy + HTTPS termination |
 
 ## Quick start
 
@@ -38,17 +39,21 @@ ollama pull deepseek-r1
 
 All data survives reboots and container restarts:
 
-- Docker named volumes (`/var/lib/docker/volumes/`) store Open WebUI, Docmost, PostgreSQL, and Redis data
+- Docker named volumes (`/var/lib/docker/volumes/`) store Open WebUI, Docmost, PostgreSQL, Redis, and Caddy TLS cert data
 - Ollama models live in `~/.ollama` on the host
 - Containers restart automatically (`restart: unless-stopped`)
 - Ollama auto-starts via systemd on boot
 
 ## Documentation
 
-- [`SERVICES.md`](SERVICES.md) — service roles, ports, volumes, and architecture
-- [`OPERATIONS.md`](OPERATIONS.md) — setup, maintenance, backup, and troubleshooting
-- [`CREDENTIALS.md`](CREDENTIALS.md) — credential storage and password reset procedures
-- [`GLANCE_GUIDE.md`](GLANCE_GUIDE.md) — Glance dashboard configuration
+All docs live in the [`docs/`](docs/) folder:
+
+- [`docs/SERVICES.md`](docs/SERVICES.md) — service roles, ports, volumes, and architecture
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — setup, maintenance, backup, and troubleshooting
+- [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md) — credential storage and password reset procedures
+- [`docs/GLANCE_GUIDE.md`](docs/GLANCE_GUIDE.md) — Glance dashboard configuration
+- [`docs/https-setup.md`](docs/https-setup.md) — HTTPS first-time setup via Caddy + Cloudflare DNS
+- [`docs/caddy.md`](docs/caddy.md) — Caddy operational reference: Caddyfile, cert lifecycle, adding services
 
 ## Prerequisites
 
@@ -57,8 +62,16 @@ All data survives reboots and container restarts:
   - https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html
 - Native Ollama install: `curl -fsSL https://ollama.com/install.sh | sh`
 
+## Tools
+
+Utility scripts live in [`tools/`](tools/):
+
+- `tools/update_ollama_models.sh` — re-pulls all locally installed Ollama models (run manually to update)
+- `tools/delete_all_docker_containers.py` — force-removes all Docker containers and their volumes (destructive, prompts for confirmation)
+
 ## Security
 
 - Secrets live in `.env` (gitignored) — never commit it
 - Service credentials are stored in `~/.credentials/ai-server.txt` (outside this repo)
-- See [`CREDENTIALS.md`](CREDENTIALS.md) for password reset procedures
+- See [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md) for password reset procedures
+- HTTPS provided by Caddy with Let's Encrypt certs via Cloudflare DNS — see [`docs/https-setup.md`](docs/https-setup.md)
