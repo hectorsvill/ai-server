@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Self-hosted AI server stack running on a local machine with an AMD GPU. Key design choice: **Ollama runs natively on the host** (not in Docker) for direct AMD ROCm GPU access. All other services run in Docker Compose.
+Self-hosted AI server stack running on a local machine with an AMD GPU. Key design choices: **Ollama runs natively on the host** (not in Docker) for direct AMD ROCm GPU access. **rocm-stats** (`tools/rocm-stats.py`) also runs natively as a systemd service to expose GPU metrics to Glance. All other services run in Docker Compose.
 
 ## Common Commands
 
@@ -32,6 +32,10 @@ docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
 systemctl status ollama
 journalctl -u ollama -f
 
+# Check rocm-stats GPU endpoint (native systemd, port 40404)
+systemctl status rocm-stats
+curl http://localhost:40404/health
+
 # Monitor AMD GPU
 watch -n 2 rocm-smi
 
@@ -51,11 +55,14 @@ Caddy (ports 80/443) — TLS via Cloudflare DNS-01 (no public IP needed)
     │   ├─→ docmost_db:5432 (PostgreSQL)
     │   └─→ redis:6379
     └─→ glance:8080 (dashboard)
+            └─→ host.docker.internal:40404 (rocm-stats, native host service)
 ```
 
 **Caddy** is built from `caddy.Dockerfile` (custom build with `caddy-dns/cloudflare` plugin) because the standard image doesn't include it.
 
 **Ollama** listens on `0.0.0.0:11434` via a systemd override at `/etc/systemd/system/ollama.service.d/override.conf`. Without this, containers cannot reach it via `host.docker.internal`.
+
+**rocm-stats** (`tools/rocm-stats.py`) is a minimal Python HTTP server running as a systemd service on port 40404. It runs `rocm-smi` and returns GPU[0] (RX 7900 GRE) stats as HTML for Glance's `extension` widget. Systemd unit: `tools/rocm-stats.service` (installed to `/etc/systemd/system/`).
 
 All containerized services share the `ai-network` bridge. Use container names for inter-service DNS (e.g., `docmost_db`, `redis`). Use `host.docker.internal` only to reach host-level services.
 
@@ -80,12 +87,13 @@ ports:
 
 Caddy routes to services via the internal `ai-network` Docker bridge using container names, so it never needs the host ports.
 
-**Ollama (11434)** must be reachable from Docker containers via `host.docker.internal`. UFW allows port 11434 only from the Docker subnet:
+Native host services (Ollama, rocm-stats) must be reachable from Docker containers via `host.docker.internal`. UFW allows their ports only from the Docker subnet:
 ```bash
-sudo ufw allow from 172.19.0.0/16 to any port 11434
+sudo ufw allow from 172.19.0.0/16 to any port 11434   # Ollama
+sudo ufw allow from 172.19.0.0/16 to any port 40404   # rocm-stats
 ```
 
-Active UFW rules: SSH (22195), HTTP/HTTPS (80/443), Ollama from Docker subnet only.
+Active UFW rules: SSH (22195), HTTP/HTTPS (80/443), Ollama (11434) and rocm-stats (40404) from Docker subnet only.
 
 When adding a new service: bind its port to `127.0.0.1` and add a Caddy reverse proxy block — no UFW rule needed. See `docs/UFW.md`.
 

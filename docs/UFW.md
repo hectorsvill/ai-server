@@ -7,10 +7,11 @@ UFW (Uncomplicated Firewall) is the firewall layer protecting this server. This 
 ## Current Rule Set
 
 ```
-[ 1] 22195/tcp    ALLOW IN    Anywhere    # Custom SSH
-[ 2] 80/tcp       ALLOW IN    Anywhere    # HTTP (Caddy → redirects to HTTPS)
-[ 3] 443/tcp      ALLOW IN    Anywhere    # HTTPS (Caddy → all services)
-[ 4] 11434/tcp    ALLOW IN    172.19.0.0/16  # Ollama — Docker containers only
+[ 1] 22195/tcp    ALLOW IN    Anywhere          # Custom SSH
+[ 2] 80/tcp       ALLOW IN    Anywhere          # HTTP (Caddy → redirects to HTTPS)
+[ 3] 443/tcp      ALLOW IN    Anywhere          # HTTPS (Caddy → all services)
+[ 4] 11434/tcp    ALLOW IN    172.19.0.0/16     # Ollama — Docker containers only
+[ 5] 40404/tcp    ALLOW IN    172.19.0.0/16     # rocm-stats — Glance GPU widget only
 ```
 
 All public-facing services are accessed exclusively through Caddy at `https://*.vailab.us`. Direct port access to Open WebUI, Docmost, and Glance is blocked.
@@ -41,17 +42,21 @@ This is already applied to `open-webui`, `glance`, and `docmost` in `docker-comp
 
 ---
 
-## Ollama and the Docker Network
+## Host services and the Docker Network
 
-Ollama runs natively on the host (not in Docker) and must be reachable by the `open-webui` container via `host.docker.internal:11434`. This traffic originates from the `ai-network` subnet (`172.19.0.0/16`) and passes through UFW's INPUT chain.
+Some services run natively on the host (not in Docker) and must be reachable from containers via `host.docker.internal`. This traffic originates from the `ai-network` subnet (`172.19.0.0/16`) and passes through UFW's INPUT chain, so each host service needs a subnet-scoped UFW rule.
 
-Because of this, Ollama needs a UFW rule — but scoped only to the Docker subnet, not to the whole internet:
-
+**Ollama (11434)** — reached by open-webui:
 ```bash
 sudo ufw allow from 172.19.0.0/16 to any port 11434 comment "Ollama - Docker containers only"
 ```
 
-This is already in place. Do **not** open 11434 to `Anywhere`.
+**rocm-stats (40404)** — reached by glance for the GPU widget:
+```bash
+sudo ufw allow from 172.19.0.0/16 to any port 40404 comment "rocm-stats - Glance only"
+```
+
+Both are already in place. Do **not** open these ports to `Anywhere`.
 
 ---
 

@@ -54,6 +54,8 @@ services:
       - /:/host:ro
     ports:
       - "127.0.0.1:${GLANCE_PORT}:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file: .env
     networks:
       - ai-network

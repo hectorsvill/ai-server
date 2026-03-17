@@ -25,6 +25,12 @@ pages:
             disk-mount-points:
               - /host
 
+          - type: extension
+            title: RX 7900 GRE
+            url: http://host.docker.internal:40404/
+            cache: 5s
+            allow-potentially-dangerous-html: true
+
       # ── Center: Service Health & Navigation ──────────────────────────────
       - size: small
         widgets:
@@ -38,7 +44,7 @@ pages:
                 same-tab: true
 
               - title: Ollama API
-                url: http://192.168.1.83:11434
+                url: http://host.docker.internal:11434
                 same-tab: true
 
               - title: Docmost
@@ -50,6 +56,10 @@ pages:
                 url: https://dash.vailab.us
                 icon: si:grafana
                 same-tab: true
+
+          - type: docker-containers
+            title: Docker Containers
+            hide-by-default: false
 
       # ── Right: Search + News Feed ─────────────────────────────────────────
       - size: full

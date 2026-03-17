@@ -1,0 +1,13 @@
+[Unit]
+Description=ROCm GPU stats endpoint for Glance dashboard
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/hectorsvillai/Desktop/ai-server/tools/rocm-stats.py
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target

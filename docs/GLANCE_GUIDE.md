@@ -16,25 +16,25 @@ Glance is a lightweight dashboard you host yourself. It renders a configurable h
   - `./config` → `/app/config` (for `glance.yml`)
   - `./assets` → `/app/assets` (for optional images/fonts)
 - The container reads `config/glance.yml` on startup and whenever it changes (it auto-reloads on change).
-- Only a subset of widgets are available in the image used here. We validated the following as working and reliable:
-  - `monitor` (system resource overview)
+- The image used here is **v0.8.4**. Confirmed working widgets:
   - `clock` (time display)
-  - `weather` (basic weather)
-  - `calendar`
-  - `bookmarks` (links in list or grid)
-  - `rss` (news feeds)
+  - `server-stats` (CPU, memory, disk — mounts `/:/host:ro` for host filesystem)
+  - `monitor` (URL health checks with icons)
+  - `docker-containers` (running/stopped container list — mounts docker.sock)
+  - `extension` (custom HTML widget from a local HTTP endpoint)
+  - `weather`, `calendar`, `bookmarks`, `rss`
 
-> Note: Some widgets found in online examples (e.g., `docker`, `cpu`, `memory`, `storage`, `processes`) were not recognized by this image and caused restarts. We avoided these.
+> Note: Widgets like `docker`, `cpu`, `memory`, `storage`, `processes` were not recognized by older images and caused restart loops. On v0.8.4 the above list is confirmed safe. If you try an unlisted widget and Glance begins restarting, remove it and check `docker logs glance`.
 
 ## Current configuration (summary)
 
 Located at `config/glance.yml`:
 
-- Page: "AI Server Dashboard"
+- Page: "Home"
 - Columns:
-  1) Small column: `monitor`, `clock`, `weather`
-  2) Small column: Two `bookmarks` groups (AI services and system monitoring)
-  3) Full column: `rss` (AI/tech news) and a `bookmarks` grid for quick actions
+  1) Left (small): `clock`, `server-stats` (host CPU/RAM/disk), `extension` (RX 7900 GRE GPU stats)
+  2) Center (small): `monitor` (service health checks), `docker-containers`
+  3) Right (full): `search`, `rss` (AI/tech news)
 - Theme: HSL color values (hue saturation lightness)
 
 ## Dynamic host links (why & how)
@@ -64,12 +64,40 @@ See [`https-setup.md`](https-setup.md) for Caddy setup.
 
 ## System resources monitoring
 
-- The `monitor` widget shows a concise overview (CPU, memory, disk, network) as provided by this Glance image. No extra config is required.
-- Since other resource widgets were not supported by this build, we keep the configuration simple and stable with one well-working monitor widget.
+- `server-stats` — shows CPU, memory, and disk. Uses `/:/host:ro` volume mount so it can read host filesystem metrics.
+- `monitor` — health-checks a list of URLs (services). Reports up/down with icons.
+- `docker-containers` — lists all Docker containers and their state. Requires the `/var/run/docker.sock:/var/run/docker.sock:ro` mount (already present).
 
-Tips:
-- Keep `cache: 5s` for a responsive yet light refresh cadence.
-- Avoid adding unrecognized widget types as they will make Glance restart in a loop.
+## GPU stats widget (RX 7900 GRE)
+
+The `extension` widget hits a local HTTP endpoint running on the host and embeds the HTML response.
+
+**Endpoint:** `tools/rocm-stats.py` — a small Python HTTP server (systemd service `rocm-stats`) on port 40404.
+Runs `rocm-smi` and returns GPU[0] (7900 GRE) metrics: utilization, VRAM %, power draw vs cap, edge/junction temps, shader clock.
+
+**Key requirement:** The server must respond with a `Widget-Content-Type: html` header, otherwise Glance renders the body as plain text.
+
+```yaml
+- type: extension
+  title: RX 7900 GRE
+  url: http://host.docker.internal:40404/
+  cache: 5s
+  allow-potentially-dangerous-html: true  # needed for inline styles on progress bars
+```
+
+The glance service needs `extra_hosts: ["host.docker.internal:host-gateway"]` in `docker-compose.yml` to resolve the host address (already configured).
+
+**Manage the service:**
+```bash
+sudo systemctl status rocm-stats
+sudo systemctl restart rocm-stats
+journalctl -u rocm-stats -f
+
+# Smoke-test the endpoint
+curl -sv http://localhost:40404/ 2>&1 | grep -i "widget-content"
+```
+
+**UFW:** Port 40404 is allowed only from the Docker subnet (`172.19.0.0/16`). See `docs/UFW.md`.
 
 ## RSS feeds
 
@@ -131,16 +159,21 @@ docker logs glance --tail 50
 - Include additional pages in `pages:` with different widgets/layouts
 - If you later switch to a Glance build that supports more widgets, you can try adding them incrementally and watch logs for errors
 
-## Quick reference: Supported widgets (validated here)
+## Quick reference: Supported widgets (validated on v0.8.4)
 
-- monitor
-- clock
-- weather
-- calendar
-- bookmarks (style: list or grid)
-- rss
+| Widget | Purpose |
+|--------|---------|
+| `clock` | Current time |
+| `server-stats` | Host CPU, memory, disk (needs `/:/host:ro`) |
+| `monitor` | URL health checks |
+| `docker-containers` | Container state list (needs docker.sock) |
+| `extension` | Custom HTML from local HTTP endpoint |
+| `weather` | Weather forecast |
+| `calendar` | Calendar events |
+| `bookmarks` | Link lists (style: list or grid) |
+| `rss` | RSS/Atom feeds |
 
-If you try a widget and Glance begins restarting, remove it and check logs for the exact error.
+If you try a widget and Glance begins restarting, remove it and check logs: `docker logs glance --tail 50`.
 
 ---
 
