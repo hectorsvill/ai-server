@@ -9,9 +9,9 @@ A plain-English explanation of every service, how they connect, and why things a
 ```
 Your browser
      │
-     │ https://webui.yourdomain.com  (or http://YOUR_SERVER_IP:3234 direct)
-     │ https://wiki.yourdomain.com   (or http://YOUR_SERVER_IP:4389 direct)
-     │ https://dash.yourdomain.com   (or http://YOUR_SERVER_IP:11457 direct)
+     │ https://webui.yourdomain.com
+     │ https://wiki.yourdomain.com
+     │ https://dash.yourdomain.com
      ▼
 Caddy (ports 80 & 443) ◄── TLS cert from Let's Encrypt via Cloudflare DNS challenge
      │
@@ -183,7 +183,7 @@ For this to work, two things must be true:
 
 The environment variable `OLLAMA_BASE_URL=http://host.docker.internal:11434` in `.env` tells Open WebUI where to find Ollama.
 
-**Port:** `3234` on host → `8080` in container
+**Port:** `127.0.0.1:3234` on host → `8080` in container (localhost-only; external access via Caddy)
 **Data volume:** `ai-server_open_webui_data` — stores chat history, user accounts, settings
 
 ---
@@ -199,7 +199,7 @@ Docmost connects to them using the container names as hostnames — this works b
 - `DATABASE_URL=postgresql://docmost:password@docmost_db:5432/docmost`
 - `REDIS_URL=redis://redis:6379`
 
-**Port:** `4389` on host → `3000` in container
+**Port:** `127.0.0.1:4389` on host → `3000` in container (localhost-only; external access via Caddy)
 **Data volumes:**
 - `ai-server_docmost_data` — uploaded files and attachments
 - `ai-server_postgres_data` — all document content
@@ -217,7 +217,7 @@ Configuration lives in `./config/glance.yml` in this repo — mounted into the c
 
 See [`GLANCE_GUIDE.md`](GLANCE_GUIDE.md) for widget reference and customization.
 
-**Port:** `11457` on host → `8080` in container
+**Port:** `127.0.0.1:11457` on host → `8080` in container (localhost-only; external access via Caddy)
 
 ---
 
@@ -234,6 +234,17 @@ networks:
 On a bridge network, containers can reach each other by their service name. For example, Docmost can connect to `docmost_db:5432` without knowing any IP address. Docker handles the DNS resolution internally.
 
 Ollama sits outside this network on the host. Containers reach it via `host.docker.internal`, which Docker maps to the host's bridge gateway IP.
+
+### Firewall (UFW)
+
+Docker bypasses UFW by writing iptables rules directly. To prevent services from being reachable at `IP:port` from the LAN, all service ports are bound to `127.0.0.1` in `docker-compose.yml` rather than `0.0.0.0`. Caddy routes to them via the internal Docker network using container names — host ports are not involved.
+
+Active UFW rules:
+- `22195/tcp` — SSH (open to all)
+- `80/tcp`, `443/tcp` — Caddy HTTP/HTTPS (open to all)
+- `11434/tcp` — Ollama, allowed only from `172.19.0.0/16` (the `ai-network` Docker subnet)
+
+All other ports are closed. See [`UFW.md`](UFW.md) for the full guide.
 
 ---
 

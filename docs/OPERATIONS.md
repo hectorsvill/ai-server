@@ -61,12 +61,12 @@ Before starting, ensure you have:
    - Additional space for AI models (2-8GB per model)
 
 5. **Network ports available**:
-   - 11434: Ollama API (host systemd service)
-   - 3234: Open WebUI (direct access)
-   - 11457: Glance dashboard (direct access)
-   - 4389: Docmost (direct access)
-   - 80: Caddy HTTP (redirect to HTTPS)
-   - 443: Caddy HTTPS
+   - 11434: Ollama API (host systemd service — LAN access blocked by UFW except from Docker subnet)
+   - 3234: Open WebUI (localhost-only; access via https://webui.vailab.us)
+   - 11457: Glance dashboard (localhost-only; access via https://dash.vailab.us)
+   - 4389: Docmost (localhost-only; access via https://wiki.vailab.us)
+   - 80: Caddy HTTP (open — redirects to HTTPS)
+   - 443: Caddy HTTPS (open)
 
 ## Services
 
@@ -93,14 +93,14 @@ Before starting, ensure you have:
 ### Open WebUI (Port 3234)
 - **Purpose**: Modern web interface for chatting with AI models
 - **Image**: `ghcr.io/open-webui/open-webui:main`
-- **Access**: http://localhost:3234
+- **Access**: https://webui.vailab.us (or http://localhost:3234 from the server itself)
 - **Integration**: Connects to Ollama via `OLLAMA_BASE_URL`
 - **Data**: User settings and chat history in `open_webui_data` volume
 
 ### Glance (Port 11457)
 - **Purpose**: System monitoring dashboard for Docker containers and resources
 - **Image**: `glanceapp/glance`
-- **Access**: http://localhost:11457
+- **Access**: https://dash.vailab.us (or http://localhost:11457 from the server itself)
 - **Configuration**: Reads from `./config` directory
 - **Monitoring**: Docker socket access for container monitoring
   
@@ -109,7 +109,7 @@ Before starting, ensure you have:
 ### Docmost (Port 4389)
 - **Purpose**: Self-hosted knowledge management and documentation platform
 - **Image**: `docmost/docmost:latest`
-- **Access**: http://localhost:4389
+- **Access**: https://wiki.vailab.us (or http://localhost:4389 from the server itself)
 - **Dependencies**: Requires PostgreSQL and Redis
 - **Data**: Application data stored in `docmost_data` volume
 
@@ -794,26 +794,26 @@ EOF
 ## Security Considerations
 
 ### Network Security
-- All services operate within an isolated Docker network (`ai-network`)
-- Only necessary ports are exposed to the host system
-- Internal service communication uses container names and internal ports
+
+All services are accessible **only** via Caddy at `https://*.vailab.us`. Direct LAN access to service ports is blocked through two complementary mechanisms:
+
+1. **Localhost-only port binding** — `open-webui`, `glance`, and `docmost` ports are bound to `127.0.0.1` in `docker-compose.yml`. This prevents Docker from opening them to the network (Docker bypasses UFW, so UFW rules alone are not sufficient).
+
+2. **UFW firewall** — Only the following ports are open:
+   - `22195/tcp` — SSH
+   - `80/tcp`, `443/tcp` — Caddy HTTP/HTTPS
+   - `11434/tcp` from `172.19.0.0/16` — Ollama, reachable only from the Docker subnet
+
+See [`UFW.md`](UFW.md) for the full firewall guide and how to add rules safely.
 
 ### Data Security
 - **Critical**: Change the PostgreSQL password from `STRONG_DB_PASSWORD` immediately
 - Generate a secure Docmost app secret: `openssl rand -hex 32`
-- Update the `APP_URL` in docker-compose.yml with your server's actual IP
 - All application data persists in named Docker volumes
 
 ### Access Control
 - Configure user authentication in Open WebUI during first setup
 - Set up proper user permissions in Docmost
-- Consider implementing firewall rules to restrict external access:
-  ```bash
-  # Example: Allow only local network access
-  sudo ufw allow from 192.168.1.0/24 to any port 3234
-  sudo ufw allow from 192.168.1.0/24 to any port 4389
-  sudo ufw allow from 192.168.1.0/24 to any port 11457
-  ```
 
 ### AMD GPU Security
 - GPU device access is limited to containers that explicitly need it

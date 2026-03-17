@@ -31,7 +31,7 @@ services:
     image: 'ghcr.io/open-webui/open-webui:main'
     container_name: open-webui
     ports:
-      - "${OPEN_WEBUI_PORT}:8080"
+      - "127.0.0.1:${OPEN_WEBUI_PORT}:8080"
     volumes:
       - open_webui_data:/app/backend/data
     environment:
@@ -53,7 +53,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /:/host:ro
     ports:
-      - "${GLANCE_PORT}:8080"
+      - "127.0.0.1:${GLANCE_PORT}:8080"
     env_file: .env
     networks:
       - ai-network
@@ -71,7 +71,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
     ports:
-      - "${DOCMOST_PORT}:3000"
+      - "127.0.0.1:${DOCMOST_PORT}:3000"
     restart: unless-stopped
     volumes:
       - docmost_data:/app/data/storage

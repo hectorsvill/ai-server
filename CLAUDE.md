@@ -87,4 +87,5 @@ Uses Cloudflare DNS-01 ACME challenge — works on a private LAN IP with no port
 | `docs/CREDENTIALS.md` | Password management and reset procedures |
 | `docs/https-setup.md` | Step-by-step Cloudflare HTTPS setup |
 | `docs/caddy.md` | Caddyfile explained, cert lifecycle, adding services |
+| `docs/UFW.md` | Firewall rules, Docker bypass problem, managing ports |
 | `docs/GLANCE_GUIDE.md` | Dashboard widget reference and customization |
