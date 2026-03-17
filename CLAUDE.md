@@ -68,6 +68,27 @@ All containerized services share the `ai-network` bridge. Use container names fo
 
 Key environment variables: `DOMAIN`, `CF_API_TOKEN`, `POSTGRES_PASSWORD`, `APP_SECRET`, `DATABASE_URL`.
 
+## Firewall & Port Exposure
+
+**Docker bypasses UFW.** Publishing a port in `docker-compose.yml` as `PORT:PORT` opens it to the LAN regardless of UFW rules.
+
+To prevent direct IP:port access, all service ports are bound to `127.0.0.1`:
+```yaml
+ports:
+  - "127.0.0.1:${PORT}:8080"   # localhost-only — LAN cannot reach this
+```
+
+Caddy routes to services via the internal `ai-network` Docker bridge using container names, so it never needs the host ports.
+
+**Ollama (11434)** must be reachable from Docker containers via `host.docker.internal`. UFW allows port 11434 only from the Docker subnet:
+```bash
+sudo ufw allow from 172.19.0.0/16 to any port 11434
+```
+
+Active UFW rules: SSH (22195), HTTP/HTTPS (80/443), Ollama from Docker subnet only.
+
+When adding a new service: bind its port to `127.0.0.1` and add a Caddy reverse proxy block — no UFW rule needed. See `docs/UFW.md`.
+
 ## HTTPS / TLS
 
 Uses Cloudflare DNS-01 ACME challenge — works on a private LAN IP with no port-forwarding. DNS A records must be "DNS only" (not proxied). Certificates are stored in the `caddy_data` named volume and auto-renew ~30 days before 90-day expiry.
