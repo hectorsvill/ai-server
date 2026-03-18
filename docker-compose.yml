@@ -9,7 +9,11 @@ services:
   caddy:
     build:
       context: .
-      dockerfile: caddy.Dockerfile
+      dockerfile_inline: |
+        FROM caddy:builder AS builder
+        RUN xcaddy build --with github.com/caddy-dns/cloudflare
+        FROM caddy:latest
+        COPY --from=builder /usr/bin/caddy /usr/bin/caddy
     container_name: caddy
     restart: unless-stopped
     ports:
