@@ -504,7 +504,8 @@ docker compose logs -f
    # Cert may still be issuing — wait ~60s and retry
    docker compose logs caddy | grep "certificate obtained"
 
-   # Confirm DNS A records point to 192.168.1.83 and are NOT proxied
+   # Confirm DNS A records point to ${TAILSCALE_IP} (or LAN IP) and are NOT proxied
+   dig +short webui.${DOMAIN}
    ```
 
 4. **AMD GPU not detected in Ollama**:
@@ -795,7 +796,7 @@ EOF
 
 ### Network Security
 
-All services are accessible **only** via Caddy at `https://*.vailab.us`. Direct LAN access to service ports is blocked through two complementary mechanisms:
+All services are accessible **only** via Caddy at `https://*.${DOMAIN}` — from LAN or remotely via Tailscale. Direct access to service ports is blocked through two complementary mechanisms:
 
 1. **Localhost-only port binding** — `open-webui`, `glance`, and `docmost` ports are bound to `127.0.0.1` in `docker-compose.yml`. This prevents Docker from opening them to the network (Docker bypasses UFW, so UFW rules alone are not sufficient).
 
@@ -805,6 +806,8 @@ All services are accessible **only** via Caddy at `https://*.vailab.us`. Direct 
    - `11434/tcp` from `172.19.0.0/16` — Ollama, reachable only from the Docker subnet
 
 See [`UFW.md`](UFW.md) for the full firewall guide and how to add rules safely.
+
+**Tailscale** is installed for remote access. DNS A records for `webui`, `wiki`, and `dash` point to the server's Tailscale IP (`${TAILSCALE_IP}`). Client devices (MacBook, iPhone) connect via the Tailscale app — no VPN config, no port forwarding. See [`TAILSCALE.md`](TAILSCALE.md).
 
 ### Data Security
 - **Critical**: Change the PostgreSQL password from `STRONG_DB_PASSWORD` immediately

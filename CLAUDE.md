@@ -97,6 +97,42 @@ Active UFW rules: SSH (22195), HTTP/HTTPS (80/443), Ollama (11434) and rocm-stat
 
 When adding a new service: bind its port to `127.0.0.1` and add a Caddy reverse proxy block — no UFW rule needed. See `docs/UFW.md`.
 
+## Tailscale
+
+Tailscale is installed and running on this machine. Tailscale IP: **100.118.0.92** (hostname: `hectorsvillai-ms-7e26`).
+
+Caddy binds ports 80/443 on `0.0.0.0`, so all HTTPS services (`webui`, `wiki`, `dash`) are accessible over Tailscale at the same domain names — as long as DNS resolves to the Tailscale IP or the LAN IP and the machine is online.
+
+Tailscale devices on the tailnet:
+- `hectorsvillai-ms-7e26` — this server (100.118.0.92)
+- `hectors-macbook-pro` — MacBook (100.64.34.72)
+- `iphone-15-pro-max` — iPhone (100.65.253.93)
+
+No UFW rule is needed for Tailscale — it uses its own encrypted overlay and the traffic hits Caddy's already-open 80/443 ports.
+
+## Backups
+
+`tools/backup.sh` backs up all persistent data to an external drive (`BACKUP_DEST` in `.env`, e.g. `/media/hectorsvillai/VXSLAUTH/Backups`).
+
+```bash
+# Run a manual backup
+bash tools/backup.sh
+```
+
+**What is backed up:** PostgreSQL dump (`pg_dumpall`), five Docker volumes (`open_webui_data`, `docmost_data`, `caddy_data`, `caddy_config`, `redis_data`), and repo config files (`Caddyfile`, `.env`, `docker-compose.yml`, `config/`, `assets/`, `tools/`).
+
+**Not backed up:** `ollama_data` (model weights — re-downloadable, tens of GB).
+
+**Rotation:** keeps last 7 dated backup directories; older ones are pruned automatically.
+
+**Automate:** add a cron entry — the script exits silently if the drive is not mounted.
+
+```cron
+0 2 * * * /bin/bash /home/hectorsvillai/Desktop/ai-server/tools/backup.sh >> /var/log/ai-server-backup.log 2>&1
+```
+
+Full restore procedures and layout details: `docs/BACKUP.md`.
+
 ## HTTPS / TLS
 
 Uses Cloudflare DNS-01 ACME challenge — works on a private LAN IP with no port-forwarding. DNS A records must be "DNS only" (not proxied). Certificates are stored in the `caddy_data` named volume and auto-renew ~30 days before 90-day expiry.
@@ -118,3 +154,5 @@ Uses Cloudflare DNS-01 ACME challenge — works on a private LAN IP with no port
 | `docs/caddy.md` | Caddyfile explained, cert lifecycle, adding services |
 | `docs/UFW.md` | Firewall rules, Docker bypass problem, managing ports |
 | `docs/GLANCE_GUIDE.md` | Dashboard widget reference and customization |
+| `docs/BACKUP.md` | Backup script usage, restore procedures, rotation |
+| `docs/TAILSCALE.md` | Tailscale remote access setup, DNS config, troubleshooting |

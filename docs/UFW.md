@@ -88,6 +88,20 @@ sudo ufw reset
 
 ---
 
+## Tailscale
+
+Tailscale needs **no UFW rule**. It runs as a kernel-level WireGuard overlay and delivers traffic to Caddy via the already-open port 443. Adding a UFW rule for Tailscale would be redundant.
+
+```bash
+# Verify Tailscale is running — no firewall action needed
+systemctl status tailscaled
+tailscale status
+```
+
+See [`TAILSCALE.md`](TAILSCALE.md) for the full remote access setup.
+
+---
+
 ## Adding a New Service
 
 If you add a new service that should only be accessible via Caddy:
@@ -110,8 +124,8 @@ After any firewall or Docker change, verify from another machine on your LAN:
 
 ```bash
 # Should time out — direct port access is blocked
-curl --connect-timeout 5 http://192.168.1.83:4389
+curl --connect-timeout 5 http://<server-lan-ip>:4389
 
 # Should work — Caddy HTTPS is open
-curl -I https://wiki.vailab.us
+curl -I https://wiki.${DOMAIN}
 ```

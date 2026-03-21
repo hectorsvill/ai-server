@@ -7,13 +7,16 @@ A plain-English explanation of every service, how they connect, and why things a
 ## Architecture overview
 
 ```
-Your browser
+Your browser (LAN or Tailscale)
      │
      │ https://webui.yourdomain.com
      │ https://wiki.yourdomain.com
      │ https://dash.yourdomain.com
+     │
+     │  ┌─ LAN: reaches server via LAN IP
+     │  └─ Remote: reaches server via Tailscale IP (${TAILSCALE_IP})
      ▼
-Caddy (ports 80 & 443) ◄── TLS cert from Let's Encrypt via Cloudflare DNS challenge
+Caddy (ports 80 & 443, bound 0.0.0.0) ◄── TLS cert from Let's Encrypt via Cloudflare DNS challenge
      │
      ├─── reverse_proxy ──► open-webui:8080 (Docker container)
      │                             │
@@ -243,8 +246,17 @@ Active UFW rules:
 - `22195/tcp` — SSH (open to all)
 - `80/tcp`, `443/tcp` — Caddy HTTP/HTTPS (open to all)
 - `11434/tcp` — Ollama, allowed only from `172.19.0.0/16` (the `ai-network` Docker subnet)
+- `40404/tcp` — rocm-stats, allowed only from `172.19.0.0/16`
 
 All other ports are closed. See [`UFW.md`](UFW.md) for the full guide.
+
+### Tailscale
+
+Tailscale is installed on this server as a systemd service. It creates a private WireGuard overlay network so client devices (laptop, phone) can reach the server from anywhere.
+
+Cloudflare DNS A records for `webui`, `wiki`, and `dash` point to the server's Tailscale IP (`${TAILSCALE_IP}` in `.env`). Caddy listens on `0.0.0.0:443`, so it accepts connections arriving over the Tailscale interface with no config changes. No extra UFW rule is needed — port 443 is already open.
+
+See [`TAILSCALE.md`](TAILSCALE.md) for setup, DNS configuration, and troubleshooting.
 
 ---
 
@@ -285,6 +297,8 @@ Key variables:
 | `DOCMOST_PORT` | compose | Host port for Docmost (direct access) |
 | `DOMAIN` | caddy | Root domain (e.g. `yourdomain.com`) |
 | `CF_API_TOKEN` | caddy | Cloudflare API token for DNS-01 ACME challenge |
+| `TAILSCALE_IP` | reference | Server's Tailscale IPv4 — set as Cloudflare DNS A records for remote access |
+| `BACKUP_DEST` | backup.sh | External drive path for backups |
 
 Copy `.env.example` to get started — it documents every variable.
 
