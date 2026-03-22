@@ -38,13 +38,14 @@ webui.{$DOMAIN} {
 
 Each block is a **virtual host**. `{$DOMAIN}` is substituted from the `DOMAIN` environment variable. `import cloudflare_tls` applies the TLS snippet. `reverse_proxy open-webui:8080` forwards all traffic to the `open-webui` container on its internal port `8080`. Caddy automatically handles the HTTP → HTTPS redirect, HSTS headers, and HTTP/3 negotiation.
 
-The three site blocks follow the same pattern, just pointing at different containers:
+The four site blocks follow the same pattern, just pointing at different containers:
 
 | Subdomain | Container | Internal port |
 |-----------|-----------|---------------|
 | `webui.DOMAIN` | `open-webui` | 8080 |
-| `wiki.DOMAIN` | `docmost` | 3000 |
+| `docs.DOMAIN` | `docmost` | 3000 |
 | `dash.DOMAIN` | `glance` | 8080 |
+| `n8n.DOMAIN` | `n8n` | 5678 |
 
 ---
 
