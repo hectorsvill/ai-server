@@ -127,5 +127,5 @@ After any firewall or Docker change, verify from another machine on your LAN:
 curl --connect-timeout 5 http://<server-lan-ip>:4389
 
 # Should work — Caddy HTTPS is open
-curl -I https://wiki.${DOMAIN}
+curl -I https://docs.${DOMAIN}
 ```
