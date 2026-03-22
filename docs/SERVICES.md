@@ -10,7 +10,8 @@ A plain-English explanation of every service, how they connect, and why things a
 Your browser (LAN or Tailscale)
      │
      │ https://webui.yourdomain.com
-     │ https://wiki.yourdomain.com
+     │ https://docs.yourdomain.com
+     │ https://n8n.yourdomain.com
      │ https://dash.yourdomain.com
      │
      │  ┌─ LAN: reaches server via LAN IP
@@ -46,7 +47,7 @@ All Docker containers share an internal bridge network called `ai-network`. They
 
 ### Caddy — reverse proxy and HTTPS
 
-Caddy is the HTTPS entry point for the whole stack. Every browser request for `webui.*`, `wiki.*`, or `dash.*` lands on Caddy first. Caddy decrypts it, then forwards plain HTTP to the correct container over the internal Docker network, and encrypts the response before sending it back to the browser. The other containers never deal with TLS.
+Caddy is the HTTPS entry point for the whole stack. Every browser request for `webui.*`, `docs.*`, `dash.*`, or `n8n.*` lands on Caddy first. Caddy decrypts it, then forwards plain HTTP to the correct container over the internal Docker network, and encrypts the response before sending it back to the browser. The other containers never deal with TLS.
 
 **How a request flows:**
 
@@ -57,7 +58,8 @@ Browser
 Caddy container  ◄──── TLS cert (Let's Encrypt, stored in caddy_data volume)
   │  plain HTTP (internal ai-network)
   ├─► open-webui:8080    (for webui.yourdomain.com)
-  ├─► docmost:3000       (for wiki.yourdomain.com)
+  ├─► docmost:3000       (for docs.yourdomain.com)
+  ├─► n8n:5678           (for n8n.yourdomain.com)
   └─► glance:8080        (for dash.yourdomain.com)
 ```
 
@@ -85,9 +87,14 @@ webui.{$DOMAIN} {
     reverse_proxy open-webui:8080
 }
 
-wiki.{$DOMAIN} {
+docs.{$DOMAIN} {
     import cloudflare_tls
     reverse_proxy docmost:3000
+}
+
+n8n.{$DOMAIN} {
+    import cloudflare_tls
+    reverse_proxy n8n:5678
 }
 
 dash.{$DOMAIN} {
@@ -191,9 +198,9 @@ The environment variable `OLLAMA_BASE_URL=http://host.docker.internal:11434` in 
 
 ---
 
-### Docmost — wiki / knowledge base
+### Docmost — docs / knowledge base
 
-Docmost is a self-hosted wiki. It needs two supporting services to function:
+Docmost is a self-hosted docs platform. It needs two supporting services to function:
 
 - **PostgreSQL** stores all pages, workspaces, and user accounts in a relational database
 - **Redis** handles background jobs and caching (e.g. real-time collaboration, notifications)
@@ -207,6 +214,22 @@ Docmost connects to them using the container names as hostnames — this works b
 - `ai-server_docmost_data` — uploaded files and attachments
 - `ai-server_postgres_data` — all document content
 - `ai-server_redis_data` — queue and cache
+
+---
+
+### n8n — workflow automation
+
+n8n is a self-hosted workflow automation tool. It lets you build automations that connect the AI stack to external services (webhooks, APIs, databases) using a visual node editor.
+
+**Port:** `127.0.0.1:5679` on host → `5678` in container (localhost-only; external access via Caddy)
+**Data volume:** `ai-server_n8n_data` — workflows, credentials, execution history
+
+**Key environment variables:**
+- `N8N_ENCRYPTION_KEY` — encrypts saved credentials at rest; generate once with `openssl rand -hex 32` and never change after first run
+- `WEBHOOK_URL` — set to `https://n8n.DOMAIN/` so webhook trigger URLs are correct
+- `GENERIC_TIMEZONE` — set to `America/Chicago` for correct schedule trigger times
+
+n8n uses SQLite by default (stored in `n8n_data`) — no additional database is required.
 
 ---
 
@@ -254,7 +277,7 @@ All other ports are closed. See [`UFW.md`](UFW.md) for the full guide.
 
 Tailscale is installed on this server as a systemd service. It creates a private WireGuard overlay network so client devices (laptop, phone) can reach the server from anywhere.
 
-Cloudflare DNS A records for `webui`, `wiki`, and `dash` point to the server's Tailscale IP (`${TAILSCALE_IP}` in `.env`). Caddy listens on `0.0.0.0:443`, so it accepts connections arriving over the Tailscale interface with no config changes. No extra UFW rule is needed — port 443 is already open.
+Cloudflare DNS A records for `webui`, `docs`, `dash`, and `n8n` point to the server's Tailscale IP (`${TAILSCALE_IP}` in `.env`). Caddy listens on `0.0.0.0:443`, so it accepts connections arriving over the Tailscale interface with no config changes. No extra UFW rule is needed — port 443 is already open.
 
 See [`TAILSCALE.md`](TAILSCALE.md) for setup, DNS configuration, and troubleshooting.
 
@@ -270,6 +293,7 @@ Data is never stored inside containers. Containers are ephemeral — they can be
 | `ai-server_docmost_data` | File uploads, attachments | `/var/lib/docker/volumes/` |
 | `ai-server_postgres_data` | All Docmost documents | `/var/lib/docker/volumes/` |
 | `ai-server_redis_data` | Queue and cache | `/var/lib/docker/volumes/` |
+| `ai-server_n8n_data` | Workflows, credentials, executions | `/var/lib/docker/volumes/` |
 | `ai-server_caddy_data` | TLS certificates, ACME state | `/var/lib/docker/volumes/` |
 | `ai-server_caddy_config` | Caddy runtime config cache | `/var/lib/docker/volumes/` |
 | `~/.ollama` | Downloaded models | Host home directory |
@@ -292,9 +316,11 @@ Key variables:
 | `APP_SECRET` | docmost | Session signing secret |
 | `DATABASE_URL` | docmost | PostgreSQL connection string |
 | `REDIS_URL` | docmost | Redis connection string |
+| `N8N_ENCRYPTION_KEY` | n8n | Key used to encrypt saved credentials — generate with `openssl rand -hex 32` |
 | `OPEN_WEBUI_PORT` | compose | Host port for Open WebUI (direct access) |
 | `GLANCE_PORT` | compose | Host port for Glance (direct access) |
 | `DOCMOST_PORT` | compose | Host port for Docmost (direct access) |
+| `N8N_PORT` | compose | Host port for n8n (direct access) |
 | `DOMAIN` | caddy | Root domain (e.g. `yourdomain.com`) |
 | `CF_API_TOKEN` | caddy | Cloudflare API token for DNS-01 ACME challenge |
 | `TAILSCALE_IP` | reference | Server's Tailscale IPv4 — set as Cloudflare DNS A records for remote access |
