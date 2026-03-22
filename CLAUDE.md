@@ -46,14 +46,15 @@ python3 tools/delete_all_docker_containers.py
 ## Architecture
 
 ```
-Browser (HTTPS: webui/wiki/dash.{DOMAIN})
+Browser (HTTPS: webui/docs/dash/n8n.{DOMAIN})
     ↓
 Caddy (ports 80/443) — TLS via Cloudflare DNS-01 (no public IP needed)
     ├─→ open-webui:8080 (AI chat UI)
     │   └─→ host.docker.internal:11434 (Ollama, native host service)
-    ├─→ docmost:3000 (wiki)
+    ├─→ docmost:3000 (docs)
     │   ├─→ docmost_db:5432 (PostgreSQL)
     │   └─→ redis:6379
+    ├─→ n8n:5678 (workflow automation)
     └─→ glance:8080 (dashboard)
             └─→ host.docker.internal:40404 (rocm-stats, native host service)
 ```
@@ -73,7 +74,7 @@ All containerized services share the `ai-network` bridge. Use container names fo
 - **`config/glance.yml`** — Glance dashboard widgets/theme; hot-reloads on save.
 - **`assets/custom.css`** — cyberpunk theme for Glance.
 
-Key environment variables: `DOMAIN`, `CF_API_TOKEN`, `POSTGRES_PASSWORD`, `APP_SECRET`, `DATABASE_URL`.
+Key environment variables: `DOMAIN`, `CF_API_TOKEN`, `POSTGRES_PASSWORD`, `APP_SECRET`, `DATABASE_URL`, `N8N_ENCRYPTION_KEY`.
 
 ## Firewall & Port Exposure
 
@@ -101,7 +102,7 @@ When adding a new service: bind its port to `127.0.0.1` and add a Caddy reverse 
 
 Tailscale is installed and running on this machine. Tailscale IP: **100.118.0.92** (hostname: `hectorsvillai-ms-7e26`).
 
-Caddy binds ports 80/443 on `0.0.0.0`, so all HTTPS services (`webui`, `wiki`, `dash`) are accessible over Tailscale at the same domain names — as long as DNS resolves to the Tailscale IP or the LAN IP and the machine is online.
+Caddy binds ports 80/443 on `0.0.0.0`, so all HTTPS services (`webui`, `docs`, `dash`, `n8n`) are accessible over Tailscale at the same domain names — as long as DNS resolves to the Tailscale IP or the LAN IP and the machine is online.
 
 Tailscale devices on the tailnet:
 - `hectorsvillai-ms-7e26` — this server (100.118.0.92)
@@ -156,3 +157,4 @@ Uses Cloudflare DNS-01 ACME challenge — works on a private LAN IP with no port
 | `docs/GLANCE_GUIDE.md` | Dashboard widget reference and customization |
 | `docs/BACKUP.md` | Backup script usage, restore procedures, rotation |
 | `docs/TAILSCALE.md` | Tailscale remote access setup, DNS config, troubleshooting |
+| `docs/N8N.md` | n8n setup, integrations with Ollama/Open WebUI/Docmost, webhooks, workflow patterns |
