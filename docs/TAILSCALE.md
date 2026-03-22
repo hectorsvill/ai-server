@@ -17,7 +17,8 @@ iPhone / MacBook (anywhere)
         ▼
     Caddy (0.0.0.0:443)
         ├── webui.DOMAIN  → open-webui:8080
-        ├── wiki.DOMAIN   → docmost:3000
+        ├── docs.DOMAIN   → docmost:3000
+        ├── n8n.DOMAIN    → n8n:5678
         └── dash.DOMAIN   → glance:8080
 ```
 
@@ -64,13 +65,14 @@ Save this value as `TAILSCALE_IP` in your `.env` file. It is stable — it doesn
 
 ### 4. Update Cloudflare DNS A records
 
-In **Cloudflare → your domain → DNS → Records**, change the A records for all three subdomains from the LAN IP to `${TAILSCALE_IP}`:
+In **Cloudflare → your domain → DNS → Records**, change the A records for all subdomains from the LAN IP to `${TAILSCALE_IP}`:
 
 | Name | Type | Value |
 |------|------|-------|
 | `webui` | A | `${TAILSCALE_IP}` |
-| `wiki`  | A | `${TAILSCALE_IP}` |
+| `docs`  | A | `${TAILSCALE_IP}` |
 | `dash`  | A | `${TAILSCALE_IP}` |
+| `n8n`   | A | `${TAILSCALE_IP}` |
 
 Keep each record set to **"DNS only"** (grey cloud). DNS proxying (orange cloud) would break the DNS-01 certificate challenge.
 
