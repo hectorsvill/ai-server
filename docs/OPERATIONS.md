@@ -21,6 +21,7 @@ This Docker Compose configuration sets up a complete AI server stack with AMD GP
 - **Open WebUI**: Web interface for interacting with Ollama models
 - **Glance**: System monitoring and dashboard service
 - **Docmost**: Knowledge management and documentation platform
+- **n8n**: Workflow automation — build automations connecting the stack to external services
 - **PostgreSQL**: Database backend for Docmost
 - **Redis**: Cache service for Docmost performance
 - **Caddy**: Reverse proxy providing automatic HTTPS via Let's Encrypt and Cloudflare DNS challenge
@@ -64,7 +65,8 @@ Before starting, ensure you have:
    - 11434: Ollama API (host systemd service — LAN access blocked by UFW except from Docker subnet)
    - 3234: Open WebUI (localhost-only; access via https://webui.vailab.us)
    - 11457: Glance dashboard (localhost-only; access via https://dash.vailab.us)
-   - 4389: Docmost (localhost-only; access via https://wiki.vailab.us)
+   - 4389: Docmost (localhost-only; access via https://docs.vailab.us)
+   - 5679: n8n (localhost-only; access via https://n8n.vailab.us)
    - 80: Caddy HTTP (open — redirects to HTTPS)
    - 443: Caddy HTTPS (open)
 
@@ -74,7 +76,7 @@ Before starting, ensure you have:
 - **Purpose**: Terminates HTTPS for all services and reverse-proxies to them over the internal Docker network
 - **Image**: Custom build via `caddy.Dockerfile` (adds Cloudflare DNS plugin with `xcaddy`)
 - **Config**: `Caddyfile` in repo root
-- **HTTPS URLs**: `webui.yourdomain.com`, `wiki.yourdomain.com`, `dash.yourdomain.com`
+- **HTTPS URLs**: `webui.yourdomain.com`, `docs.yourdomain.com`, `dash.yourdomain.com`, `n8n.yourdomain.com`
 - **TLS**: Automatic certificates from Let's Encrypt via Cloudflare DNS-01 challenge
 - **Volumes**: `caddy_data` (certs), `caddy_config` (runtime cache)
 - **Build**: `docker compose build caddy` (takes ~2 min first time)
@@ -109,7 +111,7 @@ Before starting, ensure you have:
 ### Docmost (Port 4389)
 - **Purpose**: Self-hosted knowledge management and documentation platform
 - **Image**: `docmost/docmost:latest`
-- **Access**: https://wiki.vailab.us (or http://localhost:4389 from the server itself)
+- **Access**: https://docs.vailab.us (or http://localhost:4389 from the server itself)
 - **Dependencies**: Requires PostgreSQL and Redis
 - **Data**: Application data stored in `docmost_data` volume
 
@@ -125,6 +127,13 @@ Before starting, ensure you have:
 - **Image**: `redis:7.2-alpine`
 - **Internal Access**: `redis:6379`
 - **Data**: Cache data stored in `redis_data` volume
+
+### n8n (Port 5679)
+- **Purpose**: Workflow automation — visual node editor to connect services and build automations
+- **Image**: `docker.n8n.io/n8nio/n8n:latest`
+- **Access**: https://n8n.vailab.us (or http://localhost:5679 from the server itself)
+- **Data**: Workflows, credentials, and execution history stored in `n8n_data` volume (SQLite)
+- **Note**: `N8N_ENCRYPTION_KEY` encrypts saved credentials — do not change after first run
 
 ## Setup Instructions
 
@@ -287,6 +296,11 @@ Ollama runs natively on the host — use the `ollama` CLI directly (no `docker e
   - Create an admin account on first visit
   - Set up your knowledge base and documentation
   - Perfect for documenting your AI server setup and model configurations
+
+- **n8n**: http://localhost:5679
+  - Create an owner account on first visit
+  - Build workflows to connect AI outputs to other services
+  - Webhook URLs automatically use the public HTTPS domain
 
 ### Configuration Files
 
@@ -807,7 +821,7 @@ All services are accessible **only** via Caddy at `https://*.${DOMAIN}` — from
 
 See [`UFW.md`](UFW.md) for the full firewall guide and how to add rules safely.
 
-**Tailscale** is installed for remote access. DNS A records for `webui`, `wiki`, and `dash` point to the server's Tailscale IP (`${TAILSCALE_IP}`). Client devices (MacBook, iPhone) connect via the Tailscale app — no VPN config, no port forwarding. See [`TAILSCALE.md`](TAILSCALE.md).
+**Tailscale** is installed for remote access. DNS A records for `webui`, `docs`, `dash`, and `n8n` point to the server's Tailscale IP (`${TAILSCALE_IP}`). Client devices (MacBook, iPhone) connect via the Tailscale app — no VPN config, no port forwarding. See [`TAILSCALE.md`](TAILSCALE.md).
 
 ### Data Security
 - **Critical**: Change the PostgreSQL password from `STRONG_DB_PASSWORD` immediately
