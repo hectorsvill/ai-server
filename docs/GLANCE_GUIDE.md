@@ -56,8 +56,8 @@ If you have Caddy + HTTPS set up, you can hardcode the HTTPS subdomains instead 
 - title: "💬 Open WebUI (AI Chat)"
   url: "https://webui.yourdomain.com"
 
-- title: "📖 Docmost Wiki"
-  url: "https://wiki.yourdomain.com"
+- title: "📖 Docmost Docs"
+  url: "https://docs.yourdomain.com"
 ```
 
 See [`https-setup.md`](https-setup.md) for Caddy setup.
