@@ -7,7 +7,8 @@ Self-hosted AI stack on a local machine with an AMD GPU. Ollama runs natively fo
 | Service | Purpose | Access |
 |---------|---------|--------|
 | Open WebUI | Chat UI for LLMs | `https://webui.DOMAIN` |
-| Docmost | Wiki / knowledge base | `https://wiki.DOMAIN` |
+| Docmost | Docs / knowledge base | `https://docs.DOMAIN` |
+| n8n | Workflow automation | `https://n8n.DOMAIN` |
 | Glance | Dashboard | `https://dash.DOMAIN` |
 | Ollama | LLM runtime (native systemd, not Docker) | `localhost:11434` (server only) |
 | Caddy | Reverse proxy + HTTPS termination | ports 80 & 443 |
@@ -43,7 +44,7 @@ ollama list
 
 ## Remote access (Tailscale)
 
-Tailscale is installed on this server. Client devices (MacBook, iPhone) connect via the Tailscale app to access all services from anywhere. DNS A records for `webui`, `wiki`, and `dash` point to the server's Tailscale IP (`TAILSCALE_IP` in `.env`).
+Tailscale is installed on this server. Client devices (MacBook, iPhone) connect via the Tailscale app to access all services from anywhere. DNS A records for `webui`, `docs`, `dash`, and `n8n` point to the server's Tailscale IP (`TAILSCALE_IP` in `.env`).
 
 See [`docs/TAILSCALE.md`](docs/TAILSCALE.md) for setup and DNS configuration.
 
