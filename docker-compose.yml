@@ -98,6 +98,27 @@ services:
     networks:
       - ai-network
 
+  # n8n workflow automation service
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${N8N_PORT}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    environment:
+      N8N_HOST: n8n.${DOMAIN}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.${DOMAIN}/
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      GENERIC_TIMEZONE: America/Chicago
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ai-network
+
   # Redis service for Docmost
   redis:
     image: redis:7.2-alpine
@@ -115,6 +136,7 @@ networks:
 
 # Define named volumes for persistent data
 volumes:
+  n8n_data:
   open_webui_data:
   docmost_data:
   postgres_data:
