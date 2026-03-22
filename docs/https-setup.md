@@ -4,7 +4,7 @@ Adds HTTPS to all services using Caddy as a reverse proxy and Cloudflare for TLS
 
 **What you'll end up with:**
 - `https://webui.yourdomain.com` — Open WebUI
-- `https://wiki.yourdomain.com` — Docmost
+- `https://docs.yourdomain.com` — Docmost
 - `https://dash.yourdomain.com` — Glance
 
 ---
@@ -55,7 +55,8 @@ Once your domain is active in Cloudflare:
 | Type | Name | IPv4 address | Proxy status |
 |------|------|--------------|--------------|
 | A | `webui` | `192.168.1.83` | DNS only (grey cloud) |
-| A | `wiki` | `192.168.1.83` | DNS only (grey cloud) |
+| A | `docs` | `192.168.1.83` | DNS only (grey cloud) |
+| A | `n8n`  | `192.168.1.83` | DNS only (grey cloud) |
 | A | `dash` | `192.168.1.83` | DNS only (grey cloud) |
 
 > **Critical:** Click the orange cloud to turn it grey (DNS only). Proxied mode won't work with private IPs.
@@ -104,7 +105,7 @@ DOMAIN=yourdomain.com
 CF_API_TOKEN=your_cloudflare_api_token_here
 
 # Update Docmost URL (change from http to https)
-APP_URL=https://wiki.yourdomain.com
+APP_URL=https://docs.yourdomain.com
 ```
 
 ---
@@ -127,7 +128,8 @@ docker compose logs -f caddy
 You should see lines like:
 ```
 caddy  | {"level":"info","msg":"certificate obtained successfully","identifier":"webui.yourdomain.com"}
-caddy  | {"level":"info","msg":"certificate obtained successfully","identifier":"wiki.yourdomain.com"}
+caddy  | {"level":"info","msg":"certificate obtained successfully","identifier":"docs.yourdomain.com"}
+caddy  | {"level":"info","msg":"certificate obtained successfully","identifier":"n8n.yourdomain.com"}
 caddy  | {"level":"info","msg":"certificate obtained successfully","identifier":"dash.yourdomain.com"}
 ```
 
@@ -144,7 +146,7 @@ Edit `config/glance.yml` and update the monitor URLs to use HTTPS (replace `your
   url: https://webui.yourdomain.com
 
 - title: Docmost
-  url: https://wiki.yourdomain.com
+  url: https://docs.yourdomain.com
 
 - title: Glance Dashboard
   url: https://dash.yourdomain.com
@@ -162,7 +164,8 @@ docker compose restart glance
 Open each URL in your browser — you should see a green padlock in the address bar:
 
 - `https://webui.yourdomain.com` → Open WebUI
-- `https://wiki.yourdomain.com` → Docmost
+- `https://docs.yourdomain.com` → Docmost
+- `https://n8n.yourdomain.com` → n8n
 - `https://dash.yourdomain.com` → Glance
 
 > Old direct-port URLs (`http://192.168.1.83:3234` etc.) still work as fallback until you decide to remove them.
