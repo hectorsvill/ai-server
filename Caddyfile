@@ -25,3 +25,8 @@ n8n.{$DOMAIN} {
 	import cloudflare_tls
 	reverse_proxy n8n:5678
 }
+
+crawler.{$DOMAIN} {
+	import cloudflare_tls
+	reverse_proxy 172.19.0.1:8420
+}
