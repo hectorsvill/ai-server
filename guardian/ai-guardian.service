@@ -1,0 +1,61 @@
+# ============================================================
+# AI Guardian — systemd service unit
+#
+# Install:
+#   sudo cp ai-guardian.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable ai-guardian
+#   sudo systemctl start ai-guardian
+#
+# Logs:
+#   sudo journalctl -u ai-guardian -f
+#   tail -f /home/hectorsvillai/Desktop/ai-server/guardian/logs/guardian.log
+# ============================================================
+
+[Unit]
+Description=AI Guardian — Autonomous Server Manager (vailab.us)
+Documentation=https://github.com/yourusername/ai-server
+# Start after network, Docker, and Tailscale are ready
+After=network-online.target docker.service tailscaled.service ollama.service
+Wants=network-online.target
+Requires=docker.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/home/hectorsvillai/Desktop/ai-server/guardian
+
+# Use the virtualenv Python
+ExecStart=/home/hectorsvillai/Desktop/ai-server/guardian/venv/bin/python \
+    /home/hectorsvillai/Desktop/ai-server/guardian/ai_guardian.py
+
+# Graceful shutdown: SIGTERM first, then SIGKILL after 30s
+KillSignal=SIGTERM
+TimeoutStopSec=30
+KillMode=mixed
+
+# Auto-restart on failure
+Restart=on-failure
+RestartSec=15
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONPATH=/home/hectorsvillai/Desktop/ai-server"
+# Credentials are loaded from .env (gitignored) — never hardcode tokens here
+EnvironmentFile=/home/hectorsvillai/Desktop/ai-server/.env
+
+# Security hardening (service runs as root for docker socket + ufw access)
+NoNewPrivileges=no
+ProtectHome=no
+ProtectSystem=no
+
+# Logging via systemd journal (service also writes to log file)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-guardian
+
+[Install]
+WantedBy=multi-user.target
