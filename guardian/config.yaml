@@ -1,0 +1,236 @@
+# ============================================================
+# AI Guardian Configuration
+# Server: vailab.us  |  Path: /home/hectorsvillai/Desktop/ai-server
+# ============================================================
+
+service:
+  name: "ai-guardian"
+  host: "127.0.0.1"
+  port: 9900
+  log_level: "INFO"
+  data_dir: "/home/hectorsvillai/Desktop/ai-server/guardian/data"
+  log_dir: "/home/hectorsvillai/Desktop/ai-server/guardian/logs"
+
+# ── Server Identity ─────────────────────────────────────────
+server:
+  hostname: "vailab"
+  domain: "vailab.us"
+  tailscale_ip: "100.118.0.92"
+  project_dir: "/home/hectorsvillai/Desktop/ai-server"
+  docker_compose_file: "/home/hectorsvillai/Desktop/ai-server/docker-compose.yml"
+  caddyfile: "/home/hectorsvillai/Desktop/ai-server/Caddyfile"
+
+# ── Monitoring Intervals ────────────────────────────────────
+monitoring:
+  system_interval_seconds: 60       # host CPU/RAM/disk/network
+  docker_interval_seconds: 60       # container health & stats
+  security_interval_seconds: 30     # auth.log / UFW / suspicious procs
+  reasoning_interval_seconds: 300   # AI analysis cycle (5 min)
+  metrics_retention_days: 30        # days to keep metric history
+
+# ── Resource Thresholds (triggers events/alerts) ────────────
+thresholds:
+  cpu_warning_pct: 80.0
+  cpu_critical_pct: 95.0
+  ram_warning_pct: 80.0
+  ram_critical_pct: 92.0
+  disk_warning_pct: 75.0
+  disk_critical_pct: 90.0
+  load_avg_warning: 4.0             # 1-min load avg
+  load_avg_critical: 8.0
+  container_restart_warning: 3      # restarts in last hour
+  container_restart_critical: 10
+  ssh_failure_warning: 5            # failures in last 10 min from single IP
+  ssh_failure_critical: 20
+  # AMD GPU (RX 7900 GRE) — junction temp is the hotspot sensor
+  gpu_use_warning_pct: 90.0
+  gpu_use_critical_pct: 99.0
+  gpu_vram_warning_pct: 80.0
+  gpu_vram_critical_pct: 95.0
+  gpu_temp_warning_c: 85.0         # junction temp °C
+  gpu_temp_critical_c: 100.0
+
+# ── Docker Services (this exact stack) ──────────────────────
+docker:
+  compose_project: "ai-server"
+  socket: "unix://var/run/docker.sock"
+
+  # Managed containers with health expectations
+  services:
+    - name: "caddy"
+      critical: true
+      health_check_url: "http://127.0.0.1:80"
+      restart_policy: "always"
+
+    - name: "open-webui"
+      critical: false
+      health_check_url: "http://127.0.0.1:3234"
+      restart_policy: "always"
+
+    - name: "docmost"
+      critical: false
+      health_check_url: "http://127.0.0.1:4389"
+      restart_policy: "always"
+
+    - name: "docmost_db"
+      critical: false
+      restart_policy: "always"
+
+    - name: "redis"
+      critical: false
+      restart_policy: "always"
+
+    - name: "n8n"
+      critical: false
+      health_check_url: "http://127.0.0.1:5679"
+      restart_policy: "always"
+
+    - name: "glance"
+      critical: false
+      health_check_url: "http://127.0.0.1:11457"
+      restart_policy: "always"
+
+  # Auto-restart unhealthy containers
+  auto_restart:
+    enabled: true
+    max_restarts_per_hour: 3
+    backoff_seconds: [30, 60, 120]   # exponential backoff
+
+  # Cleanup settings
+  prune_images_older_than_days: 14
+  prune_stopped_containers: true
+
+# ── Native Host Services ─────────────────────────────────────
+native_services:
+  - name: "ollama"
+    systemd_unit: "ollama.service"
+    health_check_url: "http://127.0.0.1:11434/api/tags"
+    critical: true
+
+  - name: "rocm-stats"
+    systemd_unit: "rocm-stats.service"
+    health_check_url: "http://127.0.0.1:40404/health"
+    critical: false
+
+  - name: "tailscaled"
+    systemd_unit: "tailscaled.service"
+    critical: true
+
+# ── AI / LLM Settings ────────────────────────────────────────
+ai:
+  enabled: true
+  ollama_url: "http://127.0.0.1:11434"
+  model: "llama3.2:3b"               # fast model for routine analysis
+  reasoning_model: "llama3.1:8b"     # heavier model for deep analysis
+  timeout_seconds: 120
+  max_tokens: 2048
+
+  # Confidence thresholds for autonomous action
+  confidence_thresholds:
+    auto_execute_low_risk: 0.90      # auto-execute if confidence >= 90% AND low risk
+    auto_execute_medium_risk: 0.97   # very high confidence needed for medium risk
+    require_approval_above: 0.0      # high/critical risk ALWAYS requires approval
+
+  # Risk levels → action policy
+  risk_policy:
+    low: "auto"                      # execute automatically
+    medium: "auto_with_log"          # execute but prominently log
+    high: "require_approval"         # send webhook, wait for human
+    critical: "require_approval"     # never execute without human sign-off
+
+# ── Security Settings ─────────────────────────────────────────
+security:
+  auth_log: "/var/log/auth.log"
+  syslog: "/var/log/syslog"
+  ufw_log: "/var/log/ufw.log"
+
+  # SSH brute force response
+  auto_ban_ssh:
+    enabled: true
+    threshold: 20                    # failures from single IP before ban
+    ban_duration_minutes: 60
+    whitelist_ips:
+      - "127.0.0.1"
+      - "100.118.0.92"              # Tailscale self
+      - "100.64.0.0/10"            # Tailscale CGNAT range
+
+  # Suspicious process patterns (crypto miners, etc.)
+  suspicious_process_patterns:
+    - "xmrig"
+    - "minerd"
+    - "cpuminer"
+    - "ethminer"
+    - "nbminer"
+    - "t-rex"
+    - "teamredminer"
+
+  # Ports that should NEVER be publicly accessible (enforce with UFW check)
+  private_ports:
+    - 3234    # open-webui
+    - 4389    # docmost
+    - 5679    # n8n
+    - 11434   # ollama
+    - 11457   # glance
+    - 40404   # rocm-stats
+    - 9900    # guardian API (this service)
+
+# ── Maintenance Settings ──────────────────────────────────────
+maintenance:
+  # Disk cleanup
+  disk_cleanup:
+    enabled: true
+    trigger_at_pct: 80.0
+    clean_docker_on_trigger: true
+    clean_journal_days: 7            # keep systemd journal for N days
+
+  # Security updates (unattended upgrades)
+  security_updates:
+    enabled: true
+    schedule_cron: "0 3 * * 0"      # sundays at 3am
+    docker_image_updates: false      # safer to keep manual for Docker images
+    require_approval: true           # always ask before applying updates
+
+  # Log rotation
+  log_rotation:
+    max_size_mb: 100
+    backup_count: 5
+
+# ── Notifications ─────────────────────────────────────────────
+notifications:
+  enabled: true
+
+  # Telegram (recommended)
+  telegram:
+    enabled: true
+    bot_token: ""                    # set via env: GUARDIAN_TELEGRAM_TOKEN
+    chat_id: ""                      # set via env: GUARDIAN_TELEGRAM_CHAT_ID
+
+  # Discord
+  discord:
+    enabled: false
+    webhook_url: ""                  # set via env: GUARDIAN_DISCORD_WEBHOOK
+
+  # Slack
+  slack:
+    enabled: false
+    webhook_url: ""                  # set via env: GUARDIAN_SLACK_WEBHOOK
+
+  # Which events trigger notifications
+  notify_on:
+    - "critical_event"
+    - "security_threat"
+    - "container_down"
+    - "action_requires_approval"
+    - "disk_critical"
+    - "service_recovered"
+
+# ── Safety Controls ───────────────────────────────────────────
+safety:
+  dry_run: false                     # set true to simulate all actions (no changes)
+  emergency_stop: false              # set true to halt all automated actions
+  max_actions_per_hour: 20          # rate limit on automated actions
+  max_container_restarts_per_hour: 5
+  prohibited_actions:
+    - "delete_volume"               # never auto-delete Docker volumes
+    - "drop_database"
+    - "remove_tailscale"
