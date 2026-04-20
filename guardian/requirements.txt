@@ -1,0 +1,33 @@
+# AI Guardian - Python Dependencies
+# Install: pip install -r requirements.txt
+
+# Web framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+
+# HTTP client (for Ollama API)
+httpx>=0.27.0
+
+# Docker SDK
+docker>=7.1.0
+
+# System monitoring
+psutil>=6.1.0
+
+# Config & validation
+pydantic>=2.9.0
+pydantic-settings>=2.6.0
+PyYAML>=6.0.2
+
+# Async SQLite
+aiosqlite>=0.20.0
+
+# Structured logging
+structlog>=24.4.0
+
+# Async file I/O
+aiofiles>=24.1.0
+
+# Scheduling
+apscheduler>=3.10.4
