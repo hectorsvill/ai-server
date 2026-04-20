@@ -38,3 +38,9 @@ Thumbs.db
 
 # Local-only documentation
 PORT_MAPPINGS.md
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+venv/
