@@ -30,3 +30,13 @@ crawler.{$DOMAIN} {
 	import cloudflare_tls
 	reverse_proxy 172.19.0.1:8420
 }
+
+status.{$DOMAIN} {
+	import cloudflare_tls
+	reverse_proxy uptime-kuma:3001
+}
+
+search.{$DOMAIN} {
+	import cloudflare_tls
+	reverse_proxy searxng:8080
+}

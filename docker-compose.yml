@@ -119,6 +119,39 @@ services:
     networks:
       - ai-network
 
+  # Uptime Kuma — uptime monitor for all services, alerts via Telegram webhook
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${UPTIME_KUMA_PORT}:3001"
+    volumes:
+      - uptime_kuma_data:/app/data
+    networks:
+      - ai-network
+
+  # SearXNG — self-hosted meta-search engine for Open WebUI web search
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${SEARXNG_PORT}:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      SEARXNG_BASE_URL: https://search.${DOMAIN}/
+      SEARXNG_SECRET_KEY: ${SEARXNG_SECRET_KEY}
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    networks:
+      - ai-network
+
   # Redis service for Docmost
   redis:
     image: redis:7.2-alpine
@@ -143,3 +176,4 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
+  uptime_kuma_data:
