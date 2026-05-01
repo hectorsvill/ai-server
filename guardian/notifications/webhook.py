@@ -17,9 +17,6 @@ from guardian.core.logger import get_logger
 
 log = get_logger(__name__)
 
-# Base URL for approval webhooks (guardian API)
-_GUARDIAN_URL = f"http://{cfg.service.host}:{cfg.service.port}"
-
 
 class NotificationService:
 
@@ -63,27 +60,37 @@ class NotificationService:
         risk_level: str,
         reason: str,
     ) -> None:
-        """
-        Send an approval request with clickable approve/deny links.
-        The API exposes GET /actions/approve/{token} and /actions/deny/{token}.
-        """
-        approve_url = f"{_GUARDIAN_URL}/actions/approve/{token}"
-        deny_url = f"{_GUARDIAN_URL}/actions/deny/{token}"
+        """Send an approval request. Telegram gets inline keyboard buttons; other channels get the token for manual /approve /deny."""
+        if not cfg.notifications.enabled:
+            return
 
         risk_emoji = {"low": "🟢", "medium": "🟡", "high": "🟠", "critical": "🔴"}.get(risk_level, "⚪")
 
-        message = (
+        base_text = (
             f"🤖 *AI Guardian — Action Approval Required*\n\n"
             f"{risk_emoji} *Risk Level:* {risk_level.upper()}\n"
             f"📋 *Action:* `{action_type}`\n"
             f"🎯 *Target:* `{target}`\n"
             f"💡 *Reason:* {reason}\n\n"
-            f"✅ [APPROVE]({approve_url})\n"
-            f"❌ [DENY]({deny_url})\n\n"
             f"_Action ID: {action_id} | Expires in 10 min_"
         )
 
-        await self.notify(message, level="warning")
+        tasks = []
+        if cfg.notifications.telegram.enabled:
+            tasks.append(self._send_telegram_approval(base_text, token))
+        if cfg.notifications.discord.enabled:
+            fallback = base_text + f"\n\nReply `/approve {token}` or `/deny {token}` via Telegram bot."
+            tasks.append(self._send_discord(fallback, "warning"))
+        if cfg.notifications.slack.enabled:
+            fallback = base_text + f"\n\nReply `/approve {token}` or `/deny {token}` via Telegram bot."
+            tasks.append(self._send_slack(fallback))
+
+        for coro in tasks:
+            try:
+                await coro
+            except Exception as e:
+                log.error("approval_request_send_failed", error=str(e))
+
         log.info(
             "approval_request_sent",
             action_id=action_id,
@@ -91,6 +98,31 @@ class NotificationService:
             action_type=action_type,
             target=target,
         )
+
+    async def _send_telegram_approval(self, text: str, token: str) -> None:
+        t_cfg = cfg.notifications.telegram
+        bot_token = t_cfg.bot_token or os.environ.get("GUARDIAN_TELEGRAM_TOKEN", "")
+        chat_id = t_cfg.chat_id or os.environ.get("GUARDIAN_TELEGRAM_CHAT_ID", "")
+
+        if not bot_token or not chat_id:
+            log.warning("telegram_not_configured")
+            return
+
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "Markdown",
+            "reply_markup": {
+                "inline_keyboard": [[
+                    {"text": "✅ APPROVE", "callback_data": f"approve:{token}"},
+                    {"text": "❌ DENY",    "callback_data": f"deny:{token}"},
+                ]]
+            },
+        }
+        resp = await self._client.post(url, json=payload)
+        if resp.status_code != 200:
+            log.error("telegram_approval_send_failed", status=resp.status_code, body=resp.text[:200])
 
     # ── Channel implementations ────────────────────────────────────────────────
 
