@@ -1,0 +1,19 @@
+# Dev/test dependencies
+# The guardian venv is root-owned (created by setup.sh with sudo).
+# Install pytest into the user site-packages instead:
+#
+#   python3 -m pip install --user --break-system-packages pytest pytest-asyncio anyio
+#
+# Then run the suite from the guardian/ directory with:
+#
+#   PYTHONPATH=/home/hectorsvillai/Desktop/ai-server \
+#     ./venv/bin/python3.12 -c "
+#       import sys
+#       sys.path.append('/home/hectorsvillai/.local/lib/python3.12/site-packages')
+#       sys.path.append('/usr/lib/python3/dist-packages')
+#       import pytest; import sys; sys.exit(pytest.main(['tests/', '-q']))
+#     "
+#
+pytest>=8.0
+pytest-asyncio>=0.24
+anyio>=4.0
