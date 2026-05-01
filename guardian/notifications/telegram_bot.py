@@ -32,6 +32,9 @@ from guardian.core.database import (
 )
 from guardian.core.logger import get_logger
 from guardian.actions.executor import approve_action, deny_action
+from guardian.ai.ollama_client import get_ollama_client
+
+_CHAT_MODEL = "gemma4"
 
 log = get_logger(__name__)
 
@@ -81,7 +84,7 @@ class TelegramBot:
             "getUpdates",
             offset=self._offset,
             timeout=_POLL_TIMEOUT,
-            allowed_updates=["message"],
+            allowed_updates=["message", "callback_query"],
         )
         return result or []
 
@@ -223,6 +226,22 @@ class TelegramBot:
         log.info("emergency_stop_cleared_via_telegram")
         return "✅ *Emergency stop cleared.* Automated actions resumed."
 
+    async def _reply_ollama(self, text: str) -> None:
+        reply = await self._ask_ollama(text)
+        await self.send(reply)
+
+    async def _ask_ollama(self, text: str) -> str:
+        client = get_ollama_client()
+        if not await client.is_available():
+            return "❌ Ollama is not reachable right now."
+        try:
+            log.info("telegram_ollama_query", model=_CHAT_MODEL, prompt_len=len(text))
+            response = await client.generate(prompt=text, model=_CHAT_MODEL, temperature=0.7)
+            return response.strip() or "_(empty response)_"
+        except Exception as e:
+            log.error("telegram_ollama_error", error=str(e))
+            return f"❌ Ollama error: {e}"
+
     _HELP = (
         "🤖 *AI Guardian Commands*\n\n"
         "/status — system & container snapshot\n"
@@ -233,8 +252,49 @@ class TelegramBot:
         "/deny `<token>` — deny a pending action\n"
         "/stop — activate emergency stop\n"
         "/resume — deactivate emergency stop\n"
-        "/help — this message"
+        "/help — this message\n\n"
+        "_Send any plain message to chat with the AI (gemma4)._"
     )
+
+    # ── Inline keyboard callbacks ─────────────────────────────────────────────
+
+    async def _answer_callback(self, callback_query_id: str, text: str = "") -> None:
+        await self._api("answerCallbackQuery", callback_query_id=callback_query_id, text=text)
+
+    async def _remove_keyboard(self, chat_id: str, message_id: int) -> None:
+        await self._api(
+            "editMessageReplyMarkup",
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup={"inline_keyboard": []},
+        )
+
+    async def _handle_callback_query(self, cq: dict) -> None:
+        cq_id   = cq["id"]
+        chat_id = str(cq.get("message", {}).get("chat", {}).get("id", ""))
+        msg_id  = cq.get("message", {}).get("message_id")
+        data    = cq.get("data", "")
+
+        if chat_id != str(self._chat_id):
+            await self._answer_callback(cq_id, "Unauthorized")
+            return
+
+        if data.startswith("approve:"):
+            token = data[len("approve:"):]
+            reply = await self._cmd_approve(token)
+            await self._answer_callback(cq_id, "✅ Approved")
+        elif data.startswith("deny:"):
+            token = data[len("deny:"):]
+            reply = await self._cmd_deny(token)
+            await self._answer_callback(cq_id, "❌ Denied")
+        else:
+            await self._answer_callback(cq_id, "Unknown action")
+            return
+
+        if msg_id:
+            await self._remove_keyboard(chat_id, msg_id)
+
+        await self.send(reply)
 
     # ── Dispatch ──────────────────────────────────────────────────────────────
 
@@ -248,6 +308,8 @@ class TelegramBot:
             return
 
         if not text.startswith("/"):
+            if text:
+                asyncio.ensure_future(self._reply_ollama(text))
             return
 
         parts   = text.split()
@@ -301,6 +363,8 @@ class TelegramBot:
                     self._offset = update["update_id"] + 1
                     if msg := update.get("message"):
                         await self._handle_message(msg)
+                    elif cq := update.get("callback_query"):
+                        await self._handle_callback_query(cq)
             except asyncio.CancelledError:
                 break
             except Exception as e:
